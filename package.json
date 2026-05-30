@@ -1,0 +1,16 @@
+{
+  "name": "coinflow",
+  "version": "1.0.0",
+  "description": "大学生智能记账 PWA",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx -y http-server -p 8080 -c-1"
+  },
+  "keywords": [
+    "pwa",
+    "accounting",
+    "大学生记账"
+  ],
+  "author": "凌苍",
+  "license": "ISC"
+}
