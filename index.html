@@ -67,10 +67,10 @@
 
         <!-- 消费环形图卡片 -->
         <div class="glass-card" style="display: flex; flex-direction: column; align-items: center; padding: 20px 15px;">
-          <div style="align-self: flex-start; margin-bottom: 15px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+          <div style="align-self: flex-start; width: 100%; margin-bottom: 15px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
             <span>📊</span> <span>消费分类结构</span>
           </div>
-          <div style="position: relative; width: 180px; height: 180px;">
+          <div style="position: relative; width: 220px; height: 220px;">
             <canvas id="chart-doughnut-dashboard"></canvas>
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
               <div id="chart-center-percent" style="font-size: 20px; font-weight: 700; color: #fff;">0%</div>
@@ -114,7 +114,7 @@
         </header>
 
         <!-- 快捷操作区 (导入导出) -->
-        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 15px; overflow: visible;">
+        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 15px; overflow: visible; position: relative; z-index: 10;">
           <div style="font-size: 13px; color: var(--text-secondary);">数据管理</div>
           <div style="display: flex; gap: 8px; position: relative; overflow: visible;">
             <button id="btn-import-excel" style="background: rgba(255,255,255,0.06); border:1px solid var(--glass-border); padding:6px 12px; border-radius:8px; font-size:12px; color:var(--text-main); display:flex; align-items:center; gap:4px;">
@@ -127,7 +127,7 @@
                 📤 导出 ▾
               </button>
               <!-- 导出下拉菜单 -->
-              <div id="export-dropdown" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 38px; background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px); border: 1px solid var(--glass-border-focus); border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); z-index: 150; width: 140px; padding: 6px 0;">
+              <div id="export-dropdown" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 38px; background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px); border: 1px solid var(--glass-border-focus); border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); z-index: 200; width: 140px; padding: 6px 0;">
                 <button class="dropdown-item" id="export-excel-item">📊 导出 Excel</button>
                 <button class="dropdown-item" id="export-csv-item">📄 导出 CSV</button>
                 <button class="dropdown-item" id="export-html-item">🌐 HTML 报告</button>
@@ -255,10 +255,10 @@
           </div>
           <div style="display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 10px; color: var(--text-secondary); margin-top: 5px;">
             <span>少</span>
-            <span style="display:inline-block; width:10px; height:10px; background:rgba(255,255,255,0.06); border-radius:2px;"></span>
-            <span style="display:inline-block; width:10px; height:10px; background:rgba(255, 140, 0, 0.25); border-radius:2px;"></span>
-            <span style="display:inline-block; width:10px; height:10px; background:rgba(255, 140, 0, 0.6); border-radius:2px;"></span>
-            <span style="display:inline-block; width:10px; height:10px; background:rgba(255, 67, 54, 0.9); border-radius:2px;"></span>
+            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.05); border-radius:3px;"></span>
+            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(255, 140, 0, 0.15), rgba(255, 215, 0, 0.08)); border:1px solid rgba(255, 140, 0, 0.25); border-radius:3px; box-shadow:0 1px 3px rgba(255,140,0,0.08);"></span>
+            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(255, 140, 0, 0.45), rgba(255, 215, 0, 0.22)); border:1px solid rgba(255, 140, 0, 0.6); border-radius:3px; box-shadow:0 2px 6px rgba(255,140,0,0.2);"></span>
+            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(244, 67, 54, 0.75), rgba(255, 140, 0, 0.4)); border:1px solid rgba(244, 67, 54, 0.9); border-radius:3px; box-shadow:0 3px 8px rgba(244,67,54,0.35);"></span>
             <span>多</span>
           </div>
           <!-- 点击某天提示区域 -->

@@ -171,8 +171,8 @@
             `;
             legendItem.innerHTML = `
               <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${cat.color};"></span>
-              <span style="color:var(--text-secondary);">${cat.name}:</span>
-              <span style="font-weight:600; color:#fff;">¥${spent.toFixed(1)}</span>
+              <span style="color:var(--text-secondary);">${cat.name}</span>
+              <span style="font-weight:600; color:#fff; flex-shrink:0;">¥${spent.toFixed(1)}</span>
             `;
             legendContainer.appendChild(legendItem);
           }

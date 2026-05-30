@@ -699,13 +699,15 @@ select option {
     grid-column: 2;
     grid-row: 3 / span 2;
     min-height: 386px;
-    justify-content: space-between;
+    justify-content: center;      /* 垂直居中使圆环不再偏上 */
+    align-items: center;
     overflow: visible !important;
+    padding: 16px 15px !important; /* 收紧内边距 */
   }
 
   #page-dashboard > .glass-card:nth-of-type(3) > div:nth-of-type(2) {
-    width: 220px !important;
-    height: 220px !important;
+    width: 260px !important;
+    height: 260px !important;     /* 增大圆环尺寸 220→260 */
     padding: 10px;
     box-sizing: border-box;
   }

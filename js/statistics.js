@@ -102,32 +102,40 @@
       const cell = document.createElement('div');
       cell.style.cssText = `
         aspect-ratio: 1;
-        border-radius: 4px;
+        border-radius: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 9px;
-        color: rgba(255,255,255,0.4);
+        color: rgba(255,255,255,0.5);
         cursor: pointer;
         transition: var(--transition-smooth);
-        font-weight: 500;
+        font-weight: 600;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border: 1px solid transparent;
       `;
       cell.textContent = day;
 
-      // 根据金额阶梯配置背景色与发光
+      // 根据金额阶梯配置背景色与发光 (半透明磨砂渐变风格)
       if (spent === 0) {
-        cell.style.background = 'rgba(255, 255, 255, 0.05)';
-        cell.style.border = '1px solid rgba(255, 255, 255, 0.02)';
+        cell.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))';
+        cell.style.borderColor = 'rgba(255, 255, 255, 0.05)';
       } else if (spent <= 30) {
-        cell.style.background = 'rgba(255, 140, 0, 0.18)'; // 浅橙
-        cell.style.color = 'rgba(255, 255, 255, 0.8)';
+        cell.style.background = 'linear-gradient(135deg, rgba(255, 140, 0, 0.15), rgba(255, 215, 0, 0.08))'; // 浅橙金渐变
+        cell.style.borderColor = 'rgba(255, 140, 0, 0.25)';
+        cell.style.color = 'rgba(255, 255, 255, 0.9)';
+        cell.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 6px rgba(255, 140, 0, 0.08)';
       } else if (spent <= 100) {
-        cell.style.background = 'rgba(255, 140, 0, 0.55)'; // 中等橙
+        cell.style.background = 'linear-gradient(135deg, rgba(255, 140, 0, 0.45), rgba(255, 215, 0, 0.22))'; // 中等橙金渐变
+        cell.style.borderColor = 'rgba(255, 140, 0, 0.6)';
         cell.style.color = '#fff';
+        cell.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 12px rgba(255, 140, 0, 0.2)';
       } else {
-        cell.style.background = 'rgba(244, 67, 54, 0.85)'; // 警示红
+        cell.style.background = 'linear-gradient(135deg, rgba(244, 67, 54, 0.75), rgba(255, 140, 0, 0.4))'; // 警示红橙渐变
+        cell.style.borderColor = 'rgba(244, 67, 54, 0.9)';
         cell.style.color = '#fff';
-        cell.style.boxShadow = '0 0 5px rgba(244, 67, 54, 0.4)';
+        cell.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.2), 0 6px 16px rgba(244, 67, 54, 0.35)';
       }
 
       // 绑定点击详情
