@@ -10,9 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const PAGES_ORDER = ['dashboard', 'transactions', 'add', 'statistics'];
   let currentPageId = 'dashboard';
+  let isTransitioning = false; // 转场互斥锁，防止高并发点击竞态
 
   // 2. 页面转场核心逻辑
   function switchPage(targetPageId) {
+    if (isTransitioning) return; // 若正在转场中，拒绝新的切换动作
     if (currentPageId === targetPageId) return;
     const currentEl = document.getElementById(`page-${currentPageId}`);
     const targetEl = document.getElementById(`page-${targetPageId}`);
@@ -21,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const curIdx = PAGES_ORDER.indexOf(currentPageId);
     const targetIdx = PAGES_ORDER.indexOf(targetPageId);
     const isRight = targetIdx > curIdx;
+
+    isTransitioning = true; // 加锁
 
     // 触感反馈
     window.CoinFlowUtils.triggerHaptic('light');
@@ -66,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
       targetEl.style.transition = '';
       
       currentPageId = targetPageId;
+      isTransitioning = false; // 解锁
 
       // 触发目标页面的加载/刷新
       triggerPageInit(targetPageId);
