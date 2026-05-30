@@ -70,13 +70,13 @@ function createMainWindow() {
   });
 
   mainWindow.__coinflowRendererMessages = [];
-  mainWindow.webContents.on('console-message', (event) => {
-    if (event.level >= 2) {
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    if (level >= 2) {
       mainWindow.__coinflowRendererMessages.push({
-        level: event.level,
-        message: event.message,
-        line: event.lineNumber,
-        sourceId: event.sourceId
+        level: level,
+        message: message,
+        line: line,
+        sourceId: sourceId
       });
     }
   });

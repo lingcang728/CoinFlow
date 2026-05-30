@@ -86,7 +86,7 @@ function createDoughnutChart(canvas, data, labels, colors) {
         animateRotate: true,
         animateScale: true,
         duration: 1000,
-        easing: 'easeOutBack'
+        easing: 'easeOutCubic'
       }
     }
   });

@@ -4,7 +4,7 @@
   "description": "大学生智能记账 PWA",
   "main": "desktop/main.js",
   "scripts": {
-    "dev": "npx -y http-server -p 8080 -c-1",
+    "dev": "electron .",
     "desktop": "electron .",
     "start": "electron .",
     "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win portable",
@@ -33,9 +33,7 @@
       "vendor/**/*",
       "favicon.png",
       "index.html",
-      "manifest.json",
-      "package.json",
-      "sw.js"
+      "package.json"
     ],
     "win": {
       "icon": "assets/icons/icon.ico",

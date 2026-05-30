@@ -17,7 +17,7 @@
   const recentList = document.getElementById('dashboard-recent-list');
   const btnViewAll = document.getElementById('btn-view-all-transactions');
 
-  let currentChart = null;
+
 
   /**
    * 初始化首页
@@ -138,7 +138,7 @@
       });
 
       // 创建环形图
-      currentChart = window.CoinFlowCharts.createDoughnutChart(chartCanvas, chartData, chartLabels, chartColors);
+      window.CoinFlowCharts.createDoughnutChart(chartCanvas, chartData, chartLabels, chartColors);
       
       // 环中心百分比
       centerPercent.textContent = `${stats.totalBudget > 0 ? Math.round((stats.totalSpent / stats.totalBudget) * 100) : 0}%`;

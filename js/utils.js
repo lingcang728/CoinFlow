@@ -24,9 +24,12 @@ function formatAmount(amount) {
 // 其他返回 "M月D日" 或 "YYYY-MM-DD"
 function formatFriendlyDate(dateStr) {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const dateObj = new Date(dateStr + 'T00:00:00');
+  const compareDate = new Date(dateObj);
+  compareDate.setHours(0, 0, 0, 0);
   
-  const diffTime = today.setHours(0,0,0,0) - dateObj.setHours(0,0,0,0);
+  const diffTime = today.getTime() - compareDate.getTime();
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) return '今天';

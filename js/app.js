@@ -1,10 +1,10 @@
 // CoinFlow 主入口与路由控制中心
 document.addEventListener('DOMContentLoaded', () => {
   // 1. 初始化全局状态
-  // 从本地系统时间初始化年月，优先取 2026 年以配合凌苍账单
+  // 从本地系统时间初始化年月
   const now = new Date();
   window.CoinFlowState = {
-    currentYear: now.getFullYear() === 2026 ? 2026 : 2026, // 凌苍的账单是2026年的
+    currentYear: now.getFullYear(),
     currentMonth: now.getMonth() + 1 // 1-12
   };
 
@@ -187,12 +187,4 @@ document.addEventListener('DOMContentLoaded', () => {
     triggerPageInit('dashboard');
   }, 100);
 
-  // 6. 注册 Service Worker (离线 PWA 支持)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('[Service Worker] Registered successfully', reg.scope))
-        .catch((err) => console.warn('[Service Worker] Registration failed', err));
-    });
-  }
 });

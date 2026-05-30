@@ -30,7 +30,22 @@
     // 3. 绑定导入导出
     btnImport.onclick = () => inputFile.click();
     inputFile.onchange = handleImport;
-    btnExport.onclick = handleExport;
+    
+    // 绑定导出下拉菜单
+    const dropdown = document.getElementById('export-dropdown');
+    btnExport.onclick = (e) => {
+      e.stopPropagation();
+      window.CoinFlowUtils.triggerHaptic('light');
+      dropdown.classList.toggle('active');
+    };
+
+    document.addEventListener('click', () => {
+      dropdown.classList.remove('active');
+    });
+
+    document.getElementById('export-excel-item').onclick = () => handleExport('excel');
+    document.getElementById('export-csv-item').onclick = () => handleExport('csv');
+    document.getElementById('export-html-item').onclick = () => handleExport('html');
 
     render();
   }
@@ -93,45 +108,61 @@
   }
 
   /**
-   * 处理 Excel 导入
+   * 处理账单导入 (自动检测 CSV 或 Excel)
    */
   async function handleImport(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
     window.CoinFlowUtils.showToast('正在解析并导入账单...', 'info');
 
     try {
-      const result = await window.CoinFlowExcel.importFromExcel(file, window.CoinFlowState.currentYear);
+      let result;
+      if (isCSV) {
+        result = await window.CoinFlowExcel.importFromCSV(file);
+      } else {
+        result = await window.CoinFlowExcel.importFromExcel(file, window.CoinFlowState.currentYear);
+      }
+      
       window.CoinFlowUtils.triggerHaptic('success');
-      window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条账单 (${result.sheetsCount} 个月份)`, 'success');
+      if (isCSV) {
+        window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条支付宝账单`, 'success');
+      } else {
+        window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条账单 (${result.sheetsCount} 个月份)`, 'success');
+      }
       
-      // 重置输入框以允许重复导入同一文件
       inputFile.value = '';
-      
-      // 广播全局数据更新
       window.CoinFlowUtils.events.emit('dataChanged');
     } catch (err) {
       console.error('导入失败:', err);
-      window.CoinFlowUtils.showToast('解析导入失败，请检查文件格式', 'error');
+      window.CoinFlowUtils.showToast(err.message || '解析导入失败，请检查文件格式', 'error');
       inputFile.value = '';
     }
   }
 
   /**
-   * 处理 Excel 导出
+   * 处理账单导出 (支持多格式)
    */
-  async function handleExport() {
-    window.CoinFlowUtils.triggerHaptic('light');
-    window.CoinFlowUtils.showToast('正在生成 Excel 文件...', 'info');
+  async function handleExport(format) {
+    const year = window.CoinFlowState.currentYear;
+    const month = window.CoinFlowState.currentMonth;
 
     try {
-      const year = window.CoinFlowState.currentYear;
-      const month = window.CoinFlowState.currentMonth;
-      await window.CoinFlowExcel.exportToExcel(year, month);
+      if (format === 'excel') {
+        window.CoinFlowUtils.showToast('正在生成 Excel 文件...', 'info');
+        await window.CoinFlowExcel.exportToExcel(year, month);
+      } else if (format === 'csv') {
+        window.CoinFlowUtils.showToast('正在生成 CSV 文件...', 'info');
+        await window.CoinFlowExcel.exportToCSV(year, month);
+      } else if (format === 'html') {
+        window.CoinFlowUtils.showToast('正在生成 HTML 报告...', 'info');
+        await window.CoinFlowExportHTML.exportToHTML(year, month);
+      }
       window.CoinFlowUtils.triggerHaptic('success');
       window.CoinFlowUtils.showToast('账单导出成功', 'success');
     } catch (err) {
+      console.error('导出失败:', err);
       window.CoinFlowUtils.showToast('导出失败，请重试', 'error');
     }
   }

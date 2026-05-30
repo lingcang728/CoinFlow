@@ -136,11 +136,9 @@
         
         // 突出选中态
         document.querySelectorAll('#calendar-heatmap-container div').forEach(c => {
-          if (c.style.borderColor === 'var(--primary-gold)') {
-            c.style.borderColor = 'transparent';
-          }
+          c.classList.remove('heatmap-selected');
         });
-        cell.style.border = '1.5px solid var(--primary-gold)';
+        cell.classList.add('heatmap-selected');
         
         // 显示文本
         const formattedMonth = String(month).padStart(2, '0');

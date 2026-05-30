@@ -6,11 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' coinflow:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: coinflow:; connect-src 'self' coinflow:; worker-src 'self' coinflow:; manifest-src 'self'; object-src 'none'; base-uri 'self';">
   <title>CoinFlow 零花钱管家</title>
   
-  <!-- PWA 元数据 -->
-  <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="favicon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0a0a0f">
   
   <!-- CSS 样式 -->
@@ -55,7 +51,7 @@
         </div>
 
         <!-- 本月总览卡片 -->
-        <div class="glass-card" style="position: relative; overflow: hidden; background: linear-gradient(135deg, rgba(255, 140, 0, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%); border-color: rgba(255, 140, 0, 0.2);" id="dashboard-summary-card">
+        <div class="glass-card" style="position: relative; overflow: visible; background: linear-gradient(135deg, rgba(255, 140, 0, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%); border-color: rgba(255, 140, 0, 0.2);" id="dashboard-summary-card">
           <div style="color: var(--text-secondary); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">本月已消费</div>
           <div id="total-spent-display" style="font-size: 38px; font-weight: 800; margin: 8px 0; color: #fff;" class="gradient-text">¥0.00</div>
           
@@ -118,16 +114,25 @@
         </header>
 
         <!-- 快捷操作区 (导入导出) -->
-        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 15px;">
+        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 15px; overflow: visible;">
           <div style="font-size: 13px; color: var(--text-secondary);">数据管理</div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; position: relative; overflow: visible;">
             <button id="btn-import-excel" style="background: rgba(255,255,255,0.06); border:1px solid var(--glass-border); padding:6px 12px; border-radius:8px; font-size:12px; color:var(--text-main); display:flex; align-items:center; gap:4px;">
               📥 导入
             </button>
-            <input type="file" id="input-file-excel" accept=".xlsx, .xls" style="display: none;">
-            <button id="btn-export-excel" style="background: rgba(255,140,0,0.1); border:1px solid rgba(255,140,0,0.3); padding:6px 12px; border-radius:8px; font-size:12px; color:var(--primary-gold); display:flex; align-items:center; gap:4px;">
-              📤 导出
-            </button>
+            <input type="file" id="input-file-excel" accept=".xlsx,.xls,.csv" style="display: none;">
+            
+            <div style="position: relative; overflow: visible;">
+              <button id="btn-export-excel" style="background: rgba(255,140,0,0.1); border:1px solid rgba(255,140,0,0.3); padding:6px 12px; border-radius:8px; font-size:12px; color:var(--primary-gold); display:flex; align-items:center; gap:4px;">
+                📤 导出 ▾
+              </button>
+              <!-- 导出下拉菜单 -->
+              <div id="export-dropdown" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 38px; background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px); border: 1px solid var(--glass-border-focus); border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); z-index: 150; width: 140px; padding: 6px 0;">
+                <button class="dropdown-item" id="export-excel-item">📊 导出 Excel</button>
+                <button class="dropdown-item" id="export-csv-item">📄 导出 CSV</button>
+                <button class="dropdown-item" id="export-html-item">🌐 HTML 报告</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -387,6 +392,7 @@
   <script src="js/db.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/excel.js"></script>
+  <script src="js/export-html.js"></script>
   
   <!-- 业务页面脚本 -->
   <script src="js/dashboard.js"></script>
