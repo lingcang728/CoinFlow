@@ -22,3 +22,6 @@ Thumbs.db
 
 # Local test data
 *.xlsx.tmp
+
+# Desktop build output
+release/

@@ -2,9 +2,15 @@
   "name": "coinflow",
   "version": "1.0.0",
   "description": "大学生智能记账 PWA",
-  "main": "index.html",
+  "main": "desktop/main.js",
   "scripts": {
-    "dev": "npx -y http-server -p 8080 -c-1"
+    "dev": "npx -y http-server -p 8080 -c-1",
+    "desktop": "electron .",
+    "start": "electron .",
+    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win portable",
+    "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& set COINFLOW_SMOKE_SCREENSHOT=%TEMP%\\coinflow-smoke.png&& electron .",
+    "install:electron": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& node node_modules/electron/install.js",
+    "postinstall": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& node node_modules/electron/install.js"
   },
   "keywords": [
     "pwa",
@@ -12,5 +18,43 @@
     "大学生记账"
   ],
   "author": "凌苍",
-  "license": "ISC"
+  "license": "ISC",
+  "build": {
+    "appId": "com.lingcang.coinflow",
+    "productName": "CoinFlow",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "assets/**/*",
+      "css/**/*",
+      "desktop/**/*",
+      "js/**/*",
+      "vendor/**/*",
+      "favicon.png",
+      "index.html",
+      "manifest.json",
+      "package.json",
+      "sw.js"
+    ],
+    "win": {
+      "icon": "assets/icons/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "CoinFlow-${version}-portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.3.0",
+    "electron-builder": "^26.8.1"
+  }
 }

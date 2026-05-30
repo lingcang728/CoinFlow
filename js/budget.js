@@ -8,10 +8,12 @@
   const inputIncome = document.getElementById('input-monthly-income');
   const inputSavings = document.getElementById('input-savings-target');
   const btnAuto = document.getElementById('btn-auto-allocate-budget');
+  const btnSave = document.getElementById('btn-save-budget');
   const inputsGrid = document.getElementById('category-budgets-inputs-grid');
   
   const disposableDisplay = document.getElementById('val-disposable-display');
   const catTotalDisplay = document.getElementById('val-cat-budget-total-display');
+  let isSavingBudget = false;
 
   // 建议分配占比默认配置
   const SUGGESTED_RATIOS = {
@@ -148,6 +150,8 @@
    */
   async function saveBudget(e) {
     e.preventDefault();
+    if (isSavingBudget) return;
+
     const income = parseFloat(inputIncome.value) || 0;
     const savings = parseFloat(inputSavings.value) || 0;
     
@@ -167,6 +171,11 @@
     };
 
     try {
+      isSavingBudget = true;
+      btnSave.disabled = true;
+      btnSave.setAttribute('aria-busy', 'true');
+      btnSave.textContent = '保存中...';
+
       await window.CoinFlowDB.saveBudgetConfig(config);
       window.CoinFlowUtils.triggerHaptic('success');
       window.CoinFlowUtils.showToast('预算配置保存成功', 'success');
@@ -175,7 +184,13 @@
       window.CoinFlowUtils.events.emit('dataChanged');
     } catch (err) {
       console.error('保存失败:', err);
-      window.CoinFlowUtils.showToast('保存失败，请重试', 'error');
+      const message = err && err.message ? `保存失败：${err.message}` : '保存失败，请重试';
+      window.CoinFlowUtils.showToast(message, 'error');
+    } finally {
+      isSavingBudget = false;
+      btnSave.disabled = false;
+      btnSave.removeAttribute('aria-busy');
+      btnSave.textContent = '保存配置';
     }
   }
 

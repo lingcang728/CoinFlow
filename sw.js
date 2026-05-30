@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coinflow-v1';
+const CACHE_NAME = 'coinflow-v2-desktop';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -15,11 +15,11 @@ const ASSETS_TO_CACHE = [
   './js/budget.js',
   './js/excel.js',
   './js/utils.js',
+  './vendor/idb/idb.umd.js',
+  './vendor/chartjs/chart.umd.min.js',
+  './vendor/xlsx/xlsx.full.min.js',
   './assets/icons/icon-192.png',
-  './assets/icons/icon-512.png',
-  'https://cdn.jsdelivr.net/npm/idb@8/build/umd/index.min.js',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+  './assets/icons/icon-512.png'
 ];
 
 // 安装阶段：缓存所有静态资源
@@ -50,8 +50,10 @@ self.addEventListener('activate', (event) => {
 
 // 请求拦截阶段：优先使用缓存，不存在则网络请求，并缓存新资源（Stale-While-Revalidate 或 Network-First 策略）
 self.addEventListener('fetch', (event) => {
-  // 只拦截 http/https 的 GET 请求
-  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+  const requestUrl = new URL(event.request.url);
+  const cacheableProtocols = ['http:', 'https:', 'coinflow:'];
+
+  if (event.request.method !== 'GET' || !cacheableProtocols.includes(requestUrl.protocol)) {
     return;
   }
 

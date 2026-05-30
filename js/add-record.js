@@ -11,6 +11,7 @@
 
   let selectedCategory = 'food'; // 默认选中饮食
   let inputAmountStr = '0';
+  let isSaving = false;
 
   /**
    * 初始化记账页
@@ -31,6 +32,7 @@
 
     // 4. 绑定保存
     btnSave.onclick = saveRecord;
+    dateInput.onchange = () => updateCategoryBudgetStatus(selectedCategory);
 
     // 5. 加载历史备注推荐
     loadShortcutNotes();
@@ -208,6 +210,8 @@
    * 保存账单记录
    */
   async function saveRecord() {
+    if (isSaving) return;
+
     const amount = parseFloat(inputAmountStr);
     
     if (isNaN(amount) || amount <= 0) {
@@ -219,6 +223,12 @@
     const note = noteInput.value.trim();
     const date = dateInput.value;
 
+    if (!date || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
+      window.CoinFlowUtils.showToast('请选择有效日期', 'warning');
+      window.CoinFlowUtils.triggerHaptic('warning');
+      return;
+    }
+
     const tx = {
       amount,
       category: selectedCategory,
@@ -227,7 +237,9 @@
     };
 
     try {
+      isSaving = true;
       btnSave.disabled = true;
+      btnSave.setAttribute('aria-busy', 'true');
       btnSave.textContent = '保存中...';
 
       await window.CoinFlowDB.addTransaction(tx);
@@ -244,7 +256,9 @@
         amountDisplay.textContent = '0';
         noteInput.value = '';
         
+        isSaving = false;
         btnSave.disabled = false;
+        btnSave.removeAttribute('aria-busy');
         btnSave.textContent = '确认保存';
 
         // 广播数据变动事件
@@ -260,8 +274,11 @@
 
     } catch (err) {
       console.error('记账保存失败:', err);
-      window.CoinFlowUtils.showToast('记账保存失败，请重试', 'error');
+      const message = err && err.message ? `记账保存失败：${err.message}` : '记账保存失败，请重试';
+      window.CoinFlowUtils.showToast(message, 'error');
+      isSaving = false;
       btnSave.disabled = false;
+      btnSave.removeAttribute('aria-busy');
       btnSave.textContent = '确认保存';
     }
   }

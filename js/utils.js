@@ -42,6 +42,18 @@ function getTodayDateString() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function escapeHtml(value) {
+  const escapeMap = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+
+  return String(value ?? '').replace(/[&<>"']/g, char => escapeMap[char]);
+}
+
 // 智能震动反馈 (模拟 iOS Haptic Feedback)
 function triggerHaptic(type = 'light') {
   if (!navigator.vibrate) return;
@@ -142,6 +154,7 @@ window.CoinFlowUtils = {
   formatAmount,
   formatFriendlyDate,
   getTodayDateString,
+  escapeHtml,
   triggerHaptic,
   events: coinFlowEvents,
   showToast

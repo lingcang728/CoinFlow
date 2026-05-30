@@ -3,29 +3,29 @@
 
 // 设置 Chart.js 默认全局样式
 if (window.Chart) {
-  Chart.defaults.color = 'rgba(255, 255, 255, 0.6)';
-  Chart.defaults.font.family = "'Inter', 'Noto Sans SC', sans-serif";
-  Chart.defaults.font.size = 11;
-  Chart.defaults.responsive = true;
-  Chart.defaults.maintainAspectRatio = false;
+  window.Chart.defaults.color = 'rgba(255, 255, 255, 0.6)';
+  window.Chart.defaults.font.family = "Inter, 'Noto Sans SC', sans-serif";
+  window.Chart.defaults.font.size = 11;
+  window.Chart.defaults.responsive = true;
+  window.Chart.defaults.maintainAspectRatio = false;
   
   // 调整 Tooltip 的默认样式
-  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 15, 25, 0.9)';
-  Chart.defaults.plugins.tooltip.titleColor = '#fff';
-  Chart.defaults.plugins.tooltip.bodyColor = 'rgba(255, 255, 255, 0.8)';
-  Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
-  Chart.defaults.plugins.tooltip.borderWidth = 1;
-  Chart.defaults.plugins.tooltip.cornerRadius = 8;
-  Chart.defaults.plugins.tooltip.padding = 10;
+  window.Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 15, 25, 0.9)';
+  window.Chart.defaults.plugins.tooltip.titleColor = '#fff';
+  window.Chart.defaults.plugins.tooltip.bodyColor = 'rgba(255, 255, 255, 0.8)';
+  window.Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.1)';
+  window.Chart.defaults.plugins.tooltip.borderWidth = 1;
+  window.Chart.defaults.plugins.tooltip.cornerRadius = 8;
+  window.Chart.defaults.plugins.tooltip.padding = 10;
 }
 
 /**
  * 销毁已有的 Chart 实例，避免 Canvas 重复渲染报错
  */
 function destroyChart(ctx) {
-  if (!ctx) return;
+  if (!ctx || !window.Chart) return;
   try {
-    const chartInstance = Chart.getChart(ctx);
+    const chartInstance = window.Chart.getChart(ctx);
     if (chartInstance) {
       chartInstance.destroy();
     }
@@ -42,6 +42,9 @@ function destroyChart(ctx) {
  * @param {Array<string>} colors 各分类配色
  */
 function createDoughnutChart(canvas, data, labels, colors) {
+  if (!window.Chart) {
+    throw new Error('Chart.js is not loaded');
+  }
   destroyChart(canvas);
   
   // 如果全是 0，提供一个空灰环
@@ -50,7 +53,7 @@ function createDoughnutChart(canvas, data, labels, colors) {
   const chartColors = total === 0 ? ['rgba(255, 255, 255, 0.1)'] : colors;
   const chartLabels = total === 0 ? ['无数据'] : labels;
 
-  return new Chart(canvas, {
+  return new window.Chart(canvas, {
     type: 'doughnut',
     data: {
       labels: chartLabels,
@@ -97,11 +100,14 @@ function createDoughnutChart(canvas, data, labels, colors) {
  * @param {number} avgLineValue 平均消费额虚线
  */
 function createBarChart(canvas, data, labels, avgLineValue = 0) {
+  if (!window.Chart) {
+    throw new Error('Chart.js is not loaded');
+  }
   destroyChart(canvas);
 
   // 橙金渐变填充
   const ctx = canvas.getContext('2d');
-  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height || 200);
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || canvas.height || 200);
   gradient.addColorStop(0, '#FF8C00');
   gradient.addColorStop(1, 'rgba(255, 215, 0, 0.2)');
 
@@ -143,7 +149,7 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
     });
   }
 
-  return new Chart(canvas, {
+  return new window.Chart(canvas, {
     type: 'bar',
     data: {
       labels: labels,
@@ -181,16 +187,19 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
  * @param {Array<string>} labels 月份 (如 "12月", "1月", "2月")
  */
 function createLineChart(canvas, spentData, budgetData, labels) {
+  if (!window.Chart) {
+    throw new Error('Chart.js is not loaded');
+  }
   destroyChart(canvas);
 
   const ctx = canvas.getContext('2d');
   
   // 消费折线下方的渐变阴影
-  const spentGradient = ctx.createLinearGradient(0, 0, 0, canvas.height || 200);
+  const spentGradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || canvas.height || 200);
   spentGradient.addColorStop(0, 'rgba(255, 140, 0, 0.25)');
   spentGradient.addColorStop(1, 'rgba(255, 140, 0, 0.0)');
 
-  return new Chart(canvas, {
+  return new window.Chart(canvas, {
     type: 'line',
     data: {
       labels: labels,

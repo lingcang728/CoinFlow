@@ -6,6 +6,10 @@ const DB_VERSION = 1;
 let dbPromise = null;
 
 function getDB() {
+  if (!window.idb || typeof window.idb.openDB !== 'function') {
+    throw new Error('IndexedDB helper library is not loaded');
+  }
+
   if (!dbPromise) {
     dbPromise = idb.openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
@@ -83,6 +87,14 @@ async function deleteTransaction(id) {
   const db = await getDB();
   await db.delete('transactions', parseInt(id));
   return true;
+}
+
+/**
+ * 通过主键获取单笔交易记录
+ */
+async function getTransactionById(id) {
+  const db = await getDB();
+  return db.get('transactions', parseInt(id));
 }
 
 /**
@@ -196,6 +208,7 @@ window.CoinFlowDB = {
   saveBudgetConfig,
   addTransaction,
   deleteTransaction,
+  getTransactionById,
   updateTransaction,
   getTransactionsByDateRange,
   getTransactionsByMonth,

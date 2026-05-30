@@ -209,12 +209,13 @@
           let listHtml = '';
           txs.forEach(tx => {
             const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+            const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
             listHtml += `
               <div class="tx-item-row" data-id="${tx.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer;">
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="bg-${cat.class}" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px;">${cat.emoji}</span>
                   <div>
-                    <div style="font-size:13px; font-weight:500; color:#fff;">${tx.note || cat.name}</div>
+                    <div class="tx-note-text" style="font-size:13px; font-weight:500; color:#fff;">${label}</div>
                   </div>
                 </div>
                 <div style="font-size:13px; font-weight:700; color:var(--primary-gold);">-¥${tx.amount.toFixed(2)}</div>
@@ -243,12 +244,13 @@
         let listHtml = '';
         filteredTxs.forEach(tx => {
           const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+          const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
           listHtml += `
             <div class="tx-item-row" data-id="${tx.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer;">
               <div style="display:flex; align-items:center; gap:10px;">
                 <span class="bg-${cat.class}" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px;">${cat.emoji}</span>
                 <div>
-                  <div style="font-size:13px; font-weight:500; color:#fff;">${tx.note || cat.name}</div>
+                  <div class="tx-note-text" style="font-size:13px; font-weight:500; color:#fff;">${label}</div>
                   <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">${tx.date}</div>
                 </div>
               </div>
@@ -278,11 +280,9 @@
     window.CoinFlowUtils.triggerHaptic('light');
 
     try {
-      const db = await window.CoinFlowDB.getTransactionsByMonth(window.CoinFlowState.currentYear, window.CoinFlowState.currentMonth);
-      // IndexedDB 没有按ID直接获取单个方法，可以直接通过 db.js 主键查询。为了代码少依赖，我们可以从 db Promise 中查
-      const targetDb = await idb.openDB('CoinFlowDB', 1);
-      const tx = await targetDb.get('transactions', parseInt(txId));
+      const tx = await window.CoinFlowDB.getTransactionById(txId);
       if (!tx) return;
+      const safeNote = window.CoinFlowUtils.escapeHtml(tx.note || '');
 
       // 动态创建 Modal Overlay (如果已存在则清空)
       if (editModalEl) {
@@ -308,7 +308,7 @@
             <button id="btn-close-edit-modal" style="background: none; font-size: 20px; color: var(--text-secondary);">×</button>
           </div>
 
-          <form id="form-edit-transaction" onsubmit="event.preventDefault();">
+          <form id="form-edit-transaction">
             <div class="form-group" style="margin-bottom: 12px;">
               <label>消费金额 (元)</label>
               <input type="number" step="0.01" id="edit-amount" class="form-input" value="${tx.amount}" required min="0.01">
@@ -329,14 +329,14 @@
 
             <div class="form-group" style="margin-bottom: 20px;">
               <label>备注</label>
-              <input type="text" id="edit-note" class="form-input" value="${tx.note || ''}" placeholder="添加备注..." maxlength="30">
+              <input type="text" id="edit-note" class="form-input" value="${safeNote}" placeholder="添加备注..." maxlength="30">
             </div>
 
             <div style="display:flex; gap:10px;">
               <button id="btn-delete-tx" type="button" class="btn-secondary" style="flex:1; border-color:rgba(244,67,54,0.4); color:#EF5350; background:rgba(244,67,54,0.06); padding:10px;">
                 🗑️ 删除
               </button>
-              <button id="btn-update-tx" class="btn-primary" style="flex:2; padding:10px;">
+              <button id="btn-update-tx" type="button" class="btn-primary" style="flex:2; padding:10px;">
                 ✓ 保存修改
               </button>
             </div>

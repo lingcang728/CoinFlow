@@ -240,6 +240,7 @@
       } else {
         recentTxs.forEach(tx => {
           const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, color: '#fff', class: 'food' };
+          const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
           const div = document.createElement('div');
           div.style.cssText = `
             display: flex;
@@ -254,9 +255,9 @@
           };
           div.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px;">
-              <span class="bg-${cat.class}" style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px;">${cat.emoji}</span>
+                <span class="bg-${cat.class}" style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px;">${cat.emoji}</span>
               <div>
-                <div style="font-size:13px; font-weight:500;">${tx.note || cat.name}</div>
+                <div class="tx-note-text" style="font-size:13px; font-weight:500;">${label}</div>
                 <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${window.CoinFlowUtils.formatFriendlyDate(tx.date)}</div>
               </div>
             </div>

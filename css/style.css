@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
-
 :root {
   color-scheme: dark !important; /* 强行指示浏览器采用暗色调，阻止 Dark Reader 错误反色 */
   
@@ -57,10 +55,11 @@
   padding: 0;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  min-width: 0;
 }
 
 body {
-  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: Inter, "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: radial-gradient(circle at 50% 0%, var(--bg-color-end) 0%, var(--bg-color-start) 100%) no-repeat fixed !important;
   color: var(--text-main) !important;
   min-height: 100vh;
@@ -202,6 +201,7 @@ body {
   margin-bottom: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   transition: var(--transition-smooth);
+  flex-shrink: 0;
 }
 
 .glass-card:hover {
@@ -224,6 +224,20 @@ button {
   cursor: pointer;
   font-family: inherit;
   transition: var(--transition-smooth);
+}
+
+input,
+textarea,
+select {
+  user-select: text;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+select option {
+  background: #15151f;
+  color: var(--text-main);
 }
 
 .btn-primary {
@@ -493,6 +507,7 @@ button {
   font-size: 15px;
   font-family: inherit;
   transition: var(--transition-smooth);
+  line-height: 1.25;
 }
 
 .form-input:focus {
@@ -527,6 +542,21 @@ button {
   border-color: var(--primary-orange);
 }
 
+.tx-item-row {
+  gap: 12px;
+}
+
+.tx-item-row > div:first-child,
+.tx-item-row > div:first-child > div {
+  min-width: 0;
+}
+
+.tx-note-text {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* ================= 外部插件抗干扰与兼容性降级 ================= */
 @supports not (backdrop-filter: blur(20px)) {
   .glass-card {
@@ -546,4 +576,289 @@ button {
 /* 导航并发锁辅助类 */
 .pointer-events-none {
   pointer-events: none !important;
+}
+
+/* ================= 桌面 16:9 工作台布局 ================= */
+@media (min-width: 900px) {
+  body {
+    align-items: center;
+    overflow: hidden;
+    padding: 24px;
+  }
+
+  #app-container {
+    width: min(1440px, calc(100vw - 48px));
+    max-width: 1440px;
+    height: min(900px, calc(100vh - 48px));
+    min-height: 700px;
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    padding-bottom: 0;
+    overflow: hidden;
+    border-radius: 24px;
+    background: linear-gradient(135deg, rgba(12, 12, 18, 0.98) 0%, rgba(24, 24, 38, 0.96) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.62);
+  }
+
+  .page-wrapper {
+    grid-column: 2;
+    height: 100% !important;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .page {
+    padding: 28px 32px;
+    padding-top: 28px;
+    gap: 0;
+    overflow-y: auto !important;
+  }
+
+  .bottom-nav {
+    position: absolute !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: none !important;
+    width: 112px;
+    max-width: 112px;
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 22px 12px;
+    background: rgba(9, 9, 14, 0.92) !important;
+    border-top: none !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .nav-item {
+    width: 100%;
+    height: 82px;
+    flex: none;
+    border-radius: 16px;
+    font-size: 12px;
+    border: 1px solid transparent;
+  }
+
+  .nav-item:hover {
+    background: rgba(255, 255, 255, 0.055) !important;
+    border-color: rgba(255, 255, 255, 0.09) !important;
+  }
+
+  .nav-item.active {
+    background: rgba(255, 140, 0, 0.12) !important;
+    border-color: rgba(255, 215, 0, 0.26) !important;
+    color: var(--primary-gold) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 140, 0, 0.1), 0 10px 24px rgba(0, 0, 0, 0.24);
+  }
+
+  .nav-item svg {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 7px;
+  }
+
+  .nav-item.active svg {
+    transform: none;
+  }
+
+  .glass-card {
+    border-radius: 16px !important;
+    margin-bottom: 16px !important;
+  }
+
+  #page-dashboard {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+    grid-auto-rows: min-content;
+    gap: 16px;
+    align-content: start;
+  }
+
+  #page-dashboard > header {
+    grid-column: 1 / -1;
+    margin-bottom: 0 !important;
+  }
+
+  #page-dashboard > .glass-card {
+    margin-bottom: 0 !important;
+  }
+
+  #page-dashboard > .glass-card:nth-of-type(1) {
+    grid-column: 1 / -1;
+  }
+
+  #dashboard-summary-card {
+    grid-column: 1;
+    min-height: 190px;
+  }
+
+  #page-dashboard > .glass-card:nth-of-type(3) {
+    grid-column: 2;
+    grid-row: 3 / span 2;
+    min-height: 386px;
+    justify-content: space-between;
+  }
+
+  #page-dashboard > .glass-card:nth-of-type(3) > div:nth-of-type(2) {
+    width: 220px !important;
+    height: 220px !important;
+  }
+
+  #page-dashboard > .glass-card:nth-of-type(4) {
+    grid-column: 1;
+  }
+
+  #page-dashboard > .glass-card:nth-of-type(5) {
+    grid-column: 1 / -1;
+  }
+
+  #chart-legend-container,
+  #filter-categories-scroll {
+    scrollbar-width: thin !important;
+  }
+
+  #page-transactions {
+    display: grid !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    gap: 14px;
+    overflow: hidden !important;
+  }
+
+  #page-transactions > header,
+  #page-transactions > .glass-card {
+    margin-bottom: 0 !important;
+  }
+
+  #transactions-list-container {
+    min-height: 0;
+    overflow-y: auto !important;
+    margin-bottom: 0 !important;
+    padding-right: 4px;
+  }
+
+  #transactions-month-summary {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin-top: 0;
+  }
+
+  #page-add {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden !important;
+  }
+
+  #page-add > header {
+    margin-bottom: 16px !important;
+  }
+
+  #add-record-card {
+    display: grid !important;
+    grid-template-columns: minmax(300px, 0.9fr) minmax(380px, 1.1fr);
+    grid-auto-rows: min-content;
+    gap: 16px 20px;
+    min-height: 0;
+    margin-bottom: 0 !important;
+    overflow-y: auto;
+  }
+
+  #add-record-card > div:first-child,
+  #add-record-card > .add-category-grid,
+  #add-record-card > .form-group,
+  #add-record-card > div:nth-of-type(5) {
+    grid-column: 1;
+  }
+
+  #add-record-card > div:nth-of-type(3) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  #add-record-card > .keyboard-grid {
+    grid-column: 2;
+    margin-top: 0;
+    align-self: start;
+  }
+
+  #btn-save-record {
+    grid-column: 1 / -1;
+    margin-top: 0 !important;
+  }
+
+  .add-category-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  #keyboard-input-amount {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.05;
+    font-size: clamp(30px, 4vw, 48px) !important;
+  }
+
+  .key-btn {
+    height: 58px;
+  }
+
+  #page-statistics {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: min-content;
+    gap: 16px;
+    align-content: start;
+  }
+
+  #page-statistics > header {
+    grid-column: 1 / -1;
+    margin-bottom: 0 !important;
+  }
+
+  #page-statistics > .glass-card {
+    margin-bottom: 0 !important;
+  }
+
+  #page-statistics > .glass-card:nth-of-type(4) {
+    grid-column: 1 / -1;
+  }
+
+  #modal-budget-settings,
+  #modal-edit-transaction {
+    align-items: center !important;
+  }
+
+  .bottom-sheet {
+    max-width: 780px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border) !important;
+    padding: 24px;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  .modal-overlay.active .bottom-sheet {
+    transform: translateY(0) scale(1);
+  }
+
+  #category-budgets-inputs-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 899px) {
+  #keyboard-input-amount {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    line-height: 1.1;
+  }
 }

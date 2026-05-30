@@ -4,7 +4,7 @@
   "description": "大学生智能记账 PWA",
   "start_url": "./index.html",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#0a0a0f",
   "theme_color": "#FF8C00",
   "icons": [

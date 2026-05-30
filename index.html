@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' coinflow:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: coinflow:; connect-src 'self' coinflow:; worker-src 'self' coinflow:; manifest-src 'self'; object-src 'none'; base-uri 'self';">
   <title>CoinFlow 零花钱管家</title>
   
   <!-- PWA 元数据 -->
@@ -152,7 +153,7 @@
         </div>
 
         <!-- 悬浮月度统计条 -->
-        <div style="position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 440px; background: rgba(20,20,30,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border:1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 90;">
+        <div id="transactions-month-summary" style="position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 440px; background: rgba(20,20,30,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border:1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 90;">
           <div style="font-size: 12px; color: var(--text-secondary);">本月合计支出: <span id="tx-month-spent" style="color: #fff; font-weight: 700; font-size: 15px; margin-left:4px;">¥0.00</span></div>
           <div style="font-size: 11px; color: var(--text-secondary);"><span id="tx-month-count" style="color:var(--primary-gold);">0</span> 笔记录 | 日均 <span id="tx-month-avg" style="color: #fff; font-weight: 600;">¥0.00</span></div>
         </div>
@@ -332,7 +333,7 @@
         <button id="btn-close-budget-modal" style="background: none; font-size: 20px; color: var(--text-secondary);">×</button>
       </div>
 
-      <form id="form-budget-settings" onsubmit="event.preventDefault();">
+      <form id="form-budget-settings">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
           <div class="form-group">
             <label for="input-monthly-income">每月收入 (元)</label>
@@ -376,10 +377,10 @@
     <div style="color: #fff; font-size: 15px; font-weight: 600;">记账成功!</div>
   </div>
 
-  <!-- ================= 外部库 CDN ================= -->
-  <script src="https://cdn.jsdelivr.net/npm/idb@8/build/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- ================= 本地运行时库 (桌面离线可用) ================= -->
+  <script src="vendor/idb/idb.umd.js"></script>
+  <script src="vendor/chartjs/chart.umd.min.js"></script>
+  <script src="vendor/xlsx/xlsx.full.min.js"></script>
 
   <!-- ================= 本地逻辑脚本 ================= -->
   <script src="js/utils.js"></script>

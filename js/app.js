@@ -9,8 +9,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const PAGES_ORDER = ['dashboard', 'transactions', 'add', 'statistics'];
+  const TRANSITION_MS = 380;
   let currentPageId = 'dashboard';
   let isTransitioning = false; // 转场互斥锁，防止高并发点击竞态
+  let transitionTimer = null;
+
+  function resetPageInlineState(pageEl) {
+    if (!pageEl) return;
+    pageEl.style.transition = '';
+    pageEl.style.transform = '';
+    pageEl.style.opacity = '';
+    pageEl.style.visibility = '';
+    pageEl.style.position = '';
+  }
 
   // 2. 页面转场核心逻辑
   function switchPage(targetPageId) {
@@ -24,15 +35,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetIdx = PAGES_ORDER.indexOf(targetPageId);
     const isRight = targetIdx > curIdx;
 
+    const navBar = document.querySelector('.bottom-nav');
+
     try {
       isTransitioning = true; // 开启互斥锁
       
       // 物理屏蔽底栏点击，双重保障并发冲突
-      const navBar = document.querySelector('.bottom-nav');
       if (navBar) navBar.classList.add('pointer-events-none');
+      document.body.classList.add('is-route-transitioning');
 
       // 触感反馈
       window.CoinFlowUtils.triggerHaptic('light');
+
+      document.querySelectorAll('.page').forEach(page => {
+        if (page !== currentEl && page !== targetEl) {
+          page.classList.remove('active');
+          resetPageInlineState(page);
+        }
+      });
 
       // 更新底部导航高亮
       document.querySelectorAll('.nav-item').forEach(item => {
@@ -54,44 +74,55 @@ document.addEventListener('DOMContentLoaded', () => {
       targetEl.offsetWidth;
 
       // 启动转场
-      targetEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out';
+      targetEl.style.transition = `transform ${TRANSITION_MS}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${TRANSITION_MS - 80}ms ease-out`;
       targetEl.style.transform = 'translateX(0)';
       targetEl.style.opacity = '1';
       targetEl.classList.add('active');
 
-      currentEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out';
+      currentEl.style.transition = `transform ${TRANSITION_MS}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${TRANSITION_MS - 80}ms ease-out`;
       currentEl.style.transform = isRight ? 'translateX(-30%)' : 'translateX(30%)';
       currentEl.style.opacity = '0';
-      currentEl.classList.remove('active');
 
-      // 动画完成回调
-      setTimeout(() => {
+      let finished = false;
+      const completeTransition = () => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(transitionTimer);
+
         try {
-          currentEl.style.visibility = 'hidden';
-          currentEl.style.position = '';
-          currentEl.style.transform = '';
-          currentEl.style.opacity = '';
-          
-          targetEl.style.position = ''; // 局部滚动下，重归 CSS 的 absolute 定位
-          targetEl.style.transition = '';
-          
+          document.querySelectorAll('.page').forEach(page => {
+            resetPageInlineState(page);
+            page.classList.toggle('active', page === targetEl);
+          });
+
           currentPageId = targetPageId;
-          
-          // 触发目标页面的加载/刷新
           triggerPageInit(targetPageId);
+          requestAnimationFrame(() => {
+            window.dispatchEvent(new Event('resize'));
+            window.setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+          });
         } catch (initErr) {
           console.error('[Router] Error inside page init:', initErr);
         } finally {
-          isTransitioning = false; // 定时器内解锁
+          isTransitioning = false;
+          document.body.classList.remove('is-route-transitioning');
           if (navBar) navBar.classList.remove('pointer-events-none');
         }
-      }, 400);
+      };
+
+      targetEl.addEventListener('transitionend', (event) => {
+        if (event.target === targetEl && event.propertyName === 'transform') {
+          completeTransition();
+        }
+      }, { once: true });
+
+      transitionTimer = window.setTimeout(completeTransition, TRANSITION_MS + 120);
 
     } catch (err) {
       console.error('[Router] Animation switch error:', err);
       // 容错恢复解锁，防止应用导航彻底卡死
       isTransitioning = false;
-      const navBar = document.querySelector('.bottom-nav');
+      document.body.classList.remove('is-route-transitioning');
       if (navBar) navBar.classList.remove('pointer-events-none');
     }
   }
