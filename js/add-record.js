@@ -250,8 +250,12 @@
         // 广播数据变动事件
         window.CoinFlowUtils.events.emit('dataChanged');
         
-        // 自动返回看板首页
-        window.navigateToPage('dashboard');
+        // 自动返回看板首页 (仅当用户还在记账录入页面时才强行拉回，防止打断用户手动切往明细/统计的操作)
+        if (typeof window.getCurrentPageId === 'function' && window.getCurrentPageId() === 'add') {
+          window.navigateToPage('dashboard');
+        } else {
+          console.log('[AddRecord] User already navigated away, cancelling auto-redirect');
+        }
       }, 1100);
 
     } catch (err) {

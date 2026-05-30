@@ -126,7 +126,11 @@ async function getTransactionsByMonth(year, month) {
   // 补充月份前导零
   const formattedMonth = String(month).padStart(2, '0');
   const startDate = `${year}-${formattedMonth}-01`;
-  const endDate = `${year}-${formattedMonth}-31`; // 简单处理为31天，或者计算实际月底
+  
+  // 动态计算当月的实际最后一天，避免小月产生 Invalid Date 隐患
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${formattedMonth}-${String(lastDay).padStart(2, '0')}`;
+  
   return getTransactionsByDateRange(startDate, endDate);
 }
 

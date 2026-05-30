@@ -23,9 +23,14 @@ if (window.Chart) {
  * 销毁已有的 Chart 实例，避免 Canvas 重复渲染报错
  */
 function destroyChart(ctx) {
-  const chartInstance = Chart.getChart(ctx);
-  if (chartInstance) {
-    chartInstance.destroy();
+  if (!ctx) return;
+  try {
+    const chartInstance = Chart.getChart(ctx);
+    if (chartInstance) {
+      chartInstance.destroy();
+    }
+  } catch (e) {
+    console.warn('[Chart.js] Failed to safely check/destroy existing chart instance:', e);
   }
 }
 

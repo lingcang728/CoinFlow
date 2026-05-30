@@ -24,57 +24,76 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetIdx = PAGES_ORDER.indexOf(targetPageId);
     const isRight = targetIdx > curIdx;
 
-    isTransitioning = true; // 加锁
-
-    // 触感反馈
-    window.CoinFlowUtils.triggerHaptic('light');
-
-    // 更新底部导航高亮
-    document.querySelectorAll('.nav-item').forEach(item => {
-      if (item.dataset.target === targetPageId) {
-        item.classList.add('active');
-      } else {
-        item.classList.remove('active');
-      }
-    });
-
-    // 禁用目标页过渡，将其定位到左/右侧
-    targetEl.style.transition = 'none';
-    targetEl.style.transform = isRight ? 'translateX(100%)' : 'translateX(-100%)';
-    targetEl.style.opacity = '0';
-    targetEl.style.visibility = 'visible';
-    targetEl.style.position = 'absolute'; // 动画期间悬浮
-
-    // 强制重绘 (Reflow)
-    targetEl.offsetWidth;
-
-    // 启动转场
-    targetEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out';
-    targetEl.style.transform = 'translateX(0)';
-    targetEl.style.opacity = '1';
-    targetEl.classList.add('active');
-
-    currentEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out';
-    currentEl.style.transform = isRight ? 'translateX(-30%)' : 'translateX(30%)';
-    currentEl.style.opacity = '0';
-    currentEl.classList.remove('active');
-
-    // 动画完成回调
-    setTimeout(() => {
-      currentEl.style.visibility = 'hidden';
-      currentEl.style.position = '';
-      currentEl.style.transform = '';
-      currentEl.style.opacity = '';
+    try {
+      isTransitioning = true; // 开启互斥锁
       
-      targetEl.style.position = 'relative'; // 变回相对占位，自适应内容高度
-      targetEl.style.transition = '';
-      
-      currentPageId = targetPageId;
-      isTransitioning = false; // 解锁
+      // 物理屏蔽底栏点击，双重保障并发冲突
+      const navBar = document.querySelector('.bottom-nav');
+      if (navBar) navBar.classList.add('pointer-events-none');
 
-      // 触发目标页面的加载/刷新
-      triggerPageInit(targetPageId);
-    }, 400);
+      // 触感反馈
+      window.CoinFlowUtils.triggerHaptic('light');
+
+      // 更新底部导航高亮
+      document.querySelectorAll('.nav-item').forEach(item => {
+        if (item.dataset.target === targetPageId) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+
+      // 禁用目标页过渡，将其定位到左/右侧
+      targetEl.style.transition = 'none';
+      targetEl.style.transform = isRight ? 'translateX(100%)' : 'translateX(-100%)';
+      targetEl.style.opacity = '0';
+      targetEl.style.visibility = 'visible';
+      targetEl.style.position = 'absolute'; // 动画期间悬浮
+
+      // 强制重绘 (Reflow)
+      targetEl.offsetWidth;
+
+      // 启动转场
+      targetEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out';
+      targetEl.style.transform = 'translateX(0)';
+      targetEl.style.opacity = '1';
+      targetEl.classList.add('active');
+
+      currentEl.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out';
+      currentEl.style.transform = isRight ? 'translateX(-30%)' : 'translateX(30%)';
+      currentEl.style.opacity = '0';
+      currentEl.classList.remove('active');
+
+      // 动画完成回调
+      setTimeout(() => {
+        try {
+          currentEl.style.visibility = 'hidden';
+          currentEl.style.position = '';
+          currentEl.style.transform = '';
+          currentEl.style.opacity = '';
+          
+          targetEl.style.position = ''; // 局部滚动下，重归 CSS 的 absolute 定位
+          targetEl.style.transition = '';
+          
+          currentPageId = targetPageId;
+          
+          // 触发目标页面的加载/刷新
+          triggerPageInit(targetPageId);
+        } catch (initErr) {
+          console.error('[Router] Error inside page init:', initErr);
+        } finally {
+          isTransitioning = false; // 定时器内解锁
+          if (navBar) navBar.classList.remove('pointer-events-none');
+        }
+      }, 400);
+
+    } catch (err) {
+      console.error('[Router] Animation switch error:', err);
+      // 容错恢复解锁，防止应用导航彻底卡死
+      isTransitioning = false;
+      const navBar = document.querySelector('.bottom-nav');
+      if (navBar) navBar.classList.remove('pointer-events-none');
+    }
   }
 
   // 触发各个页面加载/刷新
@@ -114,6 +133,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 全局跳转接口 (如从仪表盘点击“查看全部”跳到明细页)
   window.navigateToPage = function(targetPageId) {
     switchPage(targetPageId);
+  };
+
+  // 全局获取当前页面的 ID (用于自动返回和定时器比对，防止用户切走后仍强行被拉回)
+  window.getCurrentPageId = function() {
+    return currentPageId;
   };
 
   // 4. 全局数据更新事件监听
