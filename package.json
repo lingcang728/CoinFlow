@@ -8,7 +8,7 @@
     "desktop": "electron .",
     "start": "electron .",
     "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win portable",
-    "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& set COINFLOW_SMOKE_SCREENSHOT=%TEMP%\\coinflow-smoke.png&& electron .",
+    "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& electron .",
     "install:electron": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& node node_modules/electron/install.js",
     "postinstall": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& node node_modules/electron/install.js"
   },
