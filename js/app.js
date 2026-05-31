@@ -1,134 +1,67 @@
-// CoinFlow 主入口与路由控制中心
+// CoinFlow desktop shell, routing, and global month controls.
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. 初始化全局状态
-  // 从本地系统时间初始化年月
   const now = new Date();
   window.CoinFlowState = {
     currentYear: now.getFullYear(),
-    currentMonth: now.getMonth() + 1 // 1-12
+    currentMonth: now.getMonth() + 1
   };
 
-  const PAGES_ORDER = ['dashboard', 'transactions', 'add', 'statistics'];
-  const TRANSITION_MS = 380;
-  let currentPageId = 'dashboard';
-  let isTransitioning = false; // 转场互斥锁，防止高并发点击竞态
-  let transitionTimer = null;
+  const PAGES = ['dashboard', 'transactions', 'statistics'];
+  const PAGE_TITLES = {
+    dashboard: '看板',
+    transactions: '明细',
+    statistics: '统计'
+  };
 
-  function resetPageInlineState(pageEl) {
-    if (!pageEl) return;
-    pageEl.style.transition = '';
-    pageEl.style.transform = '';
-    pageEl.style.opacity = '';
-    pageEl.style.visibility = '';
-    pageEl.style.position = '';
+  let currentPageId = 'dashboard';
+  let switchToken = 0;
+
+  const monthDisplay = document.getElementById('current-month-display');
+  const prevMonthBtn = document.getElementById('prev-month');
+  const nextMonthBtn = document.getElementById('next-month');
+  const topbarBudget = document.getElementById('topbar-budget-display');
+  const topbarAverage = document.getElementById('topbar-average-display');
+  const quickAddPanel = document.querySelector('.desktop-quick-add');
+
+  function formatMonthLabel() {
+    const { currentYear, currentMonth } = window.CoinFlowState;
+    return `${currentYear}年${String(currentMonth).padStart(2, '0')}月`;
   }
 
-  // 2. 页面转场核心逻辑
-  function switchPage(targetPageId) {
-    if (isTransitioning) return; // 若正在转场中，拒绝新的切换动作
-    if (currentPageId === targetPageId) return;
-    const currentEl = document.getElementById(`page-${currentPageId}`);
-    const targetEl = document.getElementById(`page-${targetPageId}`);
-    if (!currentEl || !targetEl) return;
-
-    const curIdx = PAGES_ORDER.indexOf(currentPageId);
-    const targetIdx = PAGES_ORDER.indexOf(targetPageId);
-    const isRight = targetIdx > curIdx;
-
-    const navBar = document.querySelector('.bottom-nav');
-
-    try {
-      isTransitioning = true; // 开启互斥锁
-      
-      // 物理屏蔽底栏点击，双重保障并发冲突
-      if (navBar) navBar.classList.add('pointer-events-none');
-      document.body.classList.add('is-route-transitioning');
-
-      // 触感反馈
-      window.CoinFlowUtils.triggerHaptic('light');
-
-      document.querySelectorAll('.page').forEach(page => {
-        if (page !== currentEl && page !== targetEl) {
-          page.classList.remove('active');
-          resetPageInlineState(page);
-        }
-      });
-
-      // 更新底部导航高亮
-      document.querySelectorAll('.nav-item').forEach(item => {
-        if (item.dataset.target === targetPageId) {
-          item.classList.add('active');
-        } else {
-          item.classList.remove('active');
-        }
-      });
-
-      // 禁用目标页过渡，将其定位到左/右侧
-      targetEl.style.transition = 'none';
-      targetEl.style.transform = isRight ? 'translateX(100%)' : 'translateX(-100%)';
-      targetEl.style.opacity = '0';
-      targetEl.style.visibility = 'visible';
-      targetEl.style.position = 'absolute'; // 动画期间悬浮
-
-      // 强制重绘 (Reflow)
-      targetEl.offsetWidth;
-
-      // 启动转场
-      targetEl.style.transition = `transform ${TRANSITION_MS}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${TRANSITION_MS - 80}ms ease-out`;
-      targetEl.style.transform = 'translateX(0)';
-      targetEl.style.opacity = '1';
-      targetEl.classList.add('active');
-
-      currentEl.style.transition = `transform ${TRANSITION_MS}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${TRANSITION_MS - 80}ms ease-out`;
-      currentEl.style.transform = isRight ? 'translateX(-30%)' : 'translateX(30%)';
-      currentEl.style.opacity = '0';
-
-      let finished = false;
-      const completeTransition = () => {
-        if (finished) return;
-        finished = true;
-        window.clearTimeout(transitionTimer);
-
-        try {
-          document.querySelectorAll('.page').forEach(page => {
-            resetPageInlineState(page);
-            page.classList.toggle('active', page === targetEl);
-          });
-
-          currentPageId = targetPageId;
-          triggerPageInit(targetPageId);
-          requestAnimationFrame(() => {
-            if (window.CoinFlowCharts && typeof window.CoinFlowCharts.resizeAll === 'function') {
-              window.CoinFlowCharts.resizeAll();
-            }
-          });
-        } catch (initErr) {
-          console.error('[Router] Error inside page init:', initErr);
-        } finally {
-          isTransitioning = false;
-          document.body.classList.remove('is-route-transitioning');
-          if (navBar) navBar.classList.remove('pointer-events-none');
-        }
-      };
-
-      targetEl.addEventListener('transitionend', (event) => {
-        if (event.target === targetEl && event.propertyName === 'transform') {
-          completeTransition();
-        }
-      }, { once: true });
-
-      transitionTimer = window.setTimeout(completeTransition, TRANSITION_MS + 120);
-
-    } catch (err) {
-      console.error('[Router] Animation switch error:', err);
-      // 容错恢复解锁，防止应用导航彻底卡死
-      isTransitioning = false;
-      document.body.classList.remove('is-route-transitioning');
-      if (navBar) navBar.classList.remove('pointer-events-none');
+  function updateMonthLabel() {
+    if (monthDisplay) {
+      monthDisplay.textContent = formatMonthLabel();
     }
   }
 
-  // 触发各个页面加载/刷新
+  async function updateTopbarMetrics() {
+    if (!topbarBudget && !topbarAverage) return;
+
+    try {
+      const { currentYear, currentMonth } = window.CoinFlowState;
+      const stats = await window.CoinFlowDB.getMonthlyStats(currentYear, currentMonth);
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      const dailyAverage = daysInMonth > 0 ? stats.totalSpent / daysInMonth : 0;
+
+      if (topbarBudget) {
+        topbarBudget.textContent = window.CoinFlowUtils.formatAmount(stats.totalBudget);
+      }
+      if (topbarAverage) {
+        topbarAverage.textContent = window.CoinFlowUtils.formatAmount(dailyAverage);
+      }
+    } catch (error) {
+      console.error('[App] Failed to update topbar metrics:', error);
+    }
+  }
+
+  function triggerChartResize() {
+    requestAnimationFrame(() => {
+      if (window.CoinFlowCharts && typeof window.CoinFlowCharts.resizeAll === 'function') {
+        window.CoinFlowCharts.resizeAll();
+      }
+    });
+  }
+
   function triggerPageInit(pageId) {
     switch (pageId) {
       case 'dashboard':
@@ -141,11 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
           window.CoinFlowTransactions.init();
         }
         break;
-      case 'add':
-        if (window.CoinFlowAddRecord && typeof window.CoinFlowAddRecord.init === 'function') {
-          window.CoinFlowAddRecord.init();
-        }
-        break;
       case 'statistics':
         if (window.CoinFlowStatistics && typeof window.CoinFlowStatistics.init === 'function') {
           window.CoinFlowStatistics.init();
@@ -154,43 +82,151 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 3. 绑定导航点击事件
-  document.querySelectorAll('.bottom-nav .nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const target = item.dataset.target;
-      switchPage(target);
+  function setActiveNav(targetPageId) {
+    document.querySelectorAll('.sidebar-nav-item[data-target]').forEach((item) => {
+      item.classList.toggle('active', item.dataset.target === targetPageId);
     });
-  });
+  }
 
-  // 全局跳转接口 (如从仪表盘点击“查看全部”跳到明细页)
+  function switchPage(targetPageId) {
+    if (targetPageId === 'add') {
+      openQuickAddPanel();
+      return true;
+    }
+
+    if (!PAGES.includes(targetPageId)) {
+      return false;
+    }
+
+    const targetEl = document.getElementById(`page-${targetPageId}`);
+    if (!targetEl) return false;
+
+    switchToken += 1;
+    const token = switchToken;
+
+    document.querySelectorAll('.desktop-page').forEach((page) => {
+      page.classList.toggle('active', page === targetEl);
+    });
+
+    currentPageId = targetPageId;
+    setActiveNav(targetPageId);
+    triggerPageInit(targetPageId);
+
+    requestAnimationFrame(() => {
+      if (token !== switchToken) return;
+      triggerChartResize();
+    });
+
+    return true;
+  }
+
+  function changeMonth(direction) {
+    let month = window.CoinFlowState.currentMonth + direction;
+    let year = window.CoinFlowState.currentYear;
+
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    } else if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+
+    window.CoinFlowState.currentYear = year;
+    window.CoinFlowState.currentMonth = month;
+    updateMonthLabel();
+    triggerPageInit(currentPageId);
+    updateTopbarMetrics();
+    triggerChartResize();
+  }
+
+  function openQuickAddPanel() {
+    document.body.classList.add('quick-add-open');
+    if (quickAddPanel) {
+      quickAddPanel.scrollTop = 0;
+    }
+    focusQuickAddAmount();
+  }
+
+  function focusQuickAddAmount() {
+    const amountInput = document.getElementById('add-amount-input');
+    if (amountInput) {
+      requestAnimationFrame(() => {
+        amountInput.focus();
+        amountInput.select();
+      });
+    }
+  }
+
+  function bindShellEvents() {
+    document.querySelectorAll('.sidebar-nav-item[data-target], .sidebar-utility[data-target], .topbar-actions [data-target]').forEach((item) => {
+      item.addEventListener('click', () => {
+        const target = item.dataset.target;
+        if (target === 'about') {
+          window.CoinFlowUtils.showToast('CoinFlow 本地桌面记账工具', 'info');
+          return;
+        }
+        switchPage(target);
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        document.body.classList.remove('quick-add-open');
+      }
+    });
+
+    if (prevMonthBtn) {
+      prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+    }
+    if (nextMonthBtn) {
+      nextMonthBtn.addEventListener('click', () => changeMonth(1));
+    }
+  }
+
   window.navigateToPage = function(targetPageId) {
-    switchPage(targetPageId);
+    return switchPage(targetPageId);
   };
 
-  // 全局获取当前页面的 ID (用于自动返回和定时器比对，防止用户切走后仍强行被拉回)
   window.getCurrentPageId = function() {
     return currentPageId;
   };
 
-  // 4. 全局数据更新事件监听
-  // 当新增记录、删除记录或修改预算时，触发相应的视图局部刷新
-  window.CoinFlowUtils.events.on('dataChanged', () => {
-    console.log('[Global Event] Data changed, refreshing current page');
+  window.openQuickAdd = openQuickAddPanel;
+  window.focusQuickAdd = focusQuickAddAmount;
+  window.refreshCurrentPage = function() {
     triggerPageInit(currentPageId);
+    updateTopbarMetrics();
+    triggerChartResize();
+  };
+
+  window.CoinFlowUtils.events.on('dataChanged', () => {
+    triggerPageInit(currentPageId);
+    updateTopbarMetrics();
+    triggerChartResize();
   });
 
-  // 5. 初始化第一个页面
-  setTimeout(() => {
-    // 初始化 IndexedDB 配置后加载仪表盘
-    if (window.CoinFlowBudget && typeof window.CoinFlowBudget.init === 'function') {
-      window.CoinFlowBudget.init();
-    }
-    triggerPageInit('dashboard');
-    requestAnimationFrame(() => {
-      if (window.CoinFlowCharts && typeof window.CoinFlowCharts.resizeAll === 'function') {
-        window.CoinFlowCharts.resizeAll();
+  bindShellEvents();
+  updateMonthLabel();
+
+  if (window.CoinFlowBudget && typeof window.CoinFlowBudget.init === 'function') {
+    window.CoinFlowBudget.init();
+  }
+
+  if (window.CoinFlowRecordForm && typeof window.CoinFlowRecordForm.mount === 'function') {
+    window.CoinFlowRecordForm.mount(document.getElementById('desktop-record-form'), {
+      onSaved: () => {
+        document.body.classList.remove('quick-add-open');
       }
     });
-  }, 100);
+  } else if (window.CoinFlowAddRecord && typeof window.CoinFlowAddRecord.init === 'function') {
+    window.CoinFlowAddRecord.init();
+  }
 
+  if (window.CoinFlowTransactions && typeof window.CoinFlowTransactions.init === 'function') {
+    window.CoinFlowTransactions.init();
+  }
+
+  switchPage('dashboard');
+  updateTopbarMetrics();
 });

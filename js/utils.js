@@ -2,8 +2,8 @@
 const CATEGORIES = {
   food: { name: '饮食', emoji: '🍚', color: '#FF6B6B', class: 'food' },
   drinks: { name: '奶茶零食', emoji: '🧋', color: '#A855F7', class: 'drinks' },
-  transport: { name: '交通', emoji: '🚌', color: '#3B82F6', class: 'transport' },
   shopping: { name: '网购', emoji: '🛒', color: '#F59E0B', class: 'shopping' },
+  transport: { name: '交通', emoji: '🚌', color: '#3B82F6', class: 'transport' },
   entertainment: { name: '娱乐', emoji: '🎮', color: '#EC4899', class: 'entertainment' },
   housing: { name: '宿舍生活', emoji: '🏠', color: '#10B981', class: 'housing' },
   social: { name: '社交', emoji: '👥', color: '#06B6D4', class: 'social' },

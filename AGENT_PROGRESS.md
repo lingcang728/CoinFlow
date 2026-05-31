@@ -26,5 +26,20 @@
 
 ## Current Stage
 
-- Stage 0 is complete when the desktop-only direction is committed.
-- Next stage: rebuild the desktop AppShell around left sidebar, main workspace, top toolbar, and right quick-add panel.
+- Stage 0 complete in commit `066878b`: desktop-only direction documented.
+- Stage 1 complete in working tree: `index.html` now uses `desktop-shell` with sidebar, topbar, main workspace, and right quick-add panel; `bottom-nav` and `page-add` are removed from the active DOM.
+- Stage 2 complete in working tree: `js/app.js` uses direct desktop page switching for dashboard, transactions, and statistics; `navigateToPage('add')` focuses quick add instead of opening a page.
+- Stage 3 complete in working tree: `js/add-record.js` exposes `CoinFlowRecordForm` mounted in `#desktop-record-form`, uses a normal amount input, keyboard submit/reset, compact categories, date picker, and no mobile keypad.
+- Stage 4 complete in working tree: dashboard uses desktop budget summary, doughnut/legend, recent records, ledger preview, and category budget progress.
+- Stage 5 complete in working tree: transactions page uses desktop filter/search controls and high-density grouped rows.
+- Stage 6 complete in working tree: statistics, budget modal, and date picker are styled for the desktop shell.
+- Stage 7 complete in working tree: source Electron smoke, Playwright viewport checks, desktop build, and packaged smoke screenshot all passed.
+
+## Verification Evidence
+
+- `node --check` passed for edited JavaScript entry points.
+- `npm run smoke:desktop` passed with saved record, date picker, exports, rapid navigation, no renderer errors, no `bottom-nav`, and no `page-add`.
+- Playwright fallback viewport checks passed for `1366x768`, `1280x800`, and `1180x720`: no horizontal overflow, exactly one active desktop page, no legacy mobile navigation.
+- Latest visual comparison used `CoinFlow.png`, `C:\Users\15pro\AppData\Local\Temp\coinflow-smoke.png`, and `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-final.png`.
+- `npm run build:desktop` generated `release/CoinFlow-1.0.0-portable.exe`.
+- Packaged app smoke launched `release/win-unpacked/CoinFlow.exe` with `COINFLOW_SMOKE_TEST=1` and produced `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-final.png` with no lingering CoinFlow process.

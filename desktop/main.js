@@ -9,7 +9,7 @@ const APP_SCHEME = 'coinflow';
 if (process.env.COINFLOW_SMOKE_TEST === '1') {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('disable-gpu');
-  app.setPath('userData', path.join(os.tmpdir(), 'coinflow-smoke-profile'));
+  app.setPath('userData', path.join(os.tmpdir(), `coinflow-smoke-profile-${process.pid}`));
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -54,10 +54,10 @@ async function registerLocalProtocol() {
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
-    width: 1366,
-    height: 768,
-    minWidth: 1100,
-    minHeight: 700,
+    width: 1440,
+    height: 900,
+    minWidth: 1180,
+    minHeight: 720,
     title: 'CoinFlow',
     backgroundColor: '#0a0a0f',
     autoHideMenuBar: true,
@@ -161,19 +161,20 @@ function waitForRendererLoad(mainWindow) {
 
 async function runSmokeTest(mainWindow) {
   const screenshotPath = process.env.COINFLOW_SMOKE_SCREENSHOT || path.join(os.tmpdir(), 'coinflow-smoke.png');
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const failTimer = setTimeout(() => {
     console.error('COINFLOW_SMOKE_ERROR=Timed out');
     app.exit(1);
-  }, 20000);
+  }, 30000);
 
   try {
     await waitForRendererLoad(mainWindow);
-    await new Promise(resolve => setTimeout(resolve, 900));
+    await wait(900);
 
     const result = await mainWindow.webContents.executeJavaScript(`
       (async () => {
         const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const note = 'Smoke-' + Date.now();
+        const note = '麻辣香锅';
         const click = (selector) => {
           const el = document.querySelector(selector);
           if (!el) throw new Error('Missing selector: ' + selector);
@@ -181,34 +182,76 @@ async function runSmokeTest(mainWindow) {
         };
 
         window.navigateToPage('add');
-        await wait(600);
+        await wait(250);
         click('#add-date-trigger');
         await wait(120);
         const datePickerVisible = Boolean(document.querySelector('.date-picker-popover:not([hidden])'));
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
         await wait(80);
-        ['1', '2', '.', '3', '4'].forEach(key => click('.key-btn[data-key="' + key + '"]'));
+        const amountInput = document.getElementById('add-amount-input');
+        amountInput.value = '25.00';
+        amountInput.dispatchEvent(new Event('input', { bubbles: true }));
         document.getElementById('add-note-input').value = note;
         document.getElementById('add-date-input').value = '2026-05-30';
         click('#btn-save-record');
-        await wait(1500);
+        await wait(700);
+
+        const seedRecords = [
+          { amount: 15, category: 'drinks', note: '一点点奶茶', date: '2026-05-30' },
+          { amount: 68.90, category: 'shopping', note: '拼多多购物', date: '2026-05-29' },
+          { amount: 2, category: 'transport', note: '公交车', date: '2026-05-29' },
+          { amount: 50, category: 'entertainment', note: '王者荣耀充值', date: '2026-05-28' },
+          { amount: 935, category: 'food', note: '本月餐饮', date: '2026-05-27' },
+          { amount: 220, category: 'drinks', note: '零食饮品', date: '2026-05-27' },
+          { amount: 621.10, category: 'shopping', note: '生活网购', date: '2026-05-26' },
+          { amount: 208, category: 'transport', note: '交通出行', date: '2026-05-26' },
+          { amount: 270, category: 'entertainment', note: '娱乐订阅', date: '2026-05-25' },
+          { amount: 160, category: 'housing', note: '宿舍生活', date: '2026-05-25' },
+          { amount: 80, category: 'social', note: '社交聚餐', date: '2026-05-24' },
+          { amount: 31, category: 'study', note: '学习资料', date: '2026-05-24' }
+        ];
+        for (const tx of seedRecords) {
+          await window.CoinFlowDB.addTransaction(tx);
+          await wait(5);
+        }
+        window.CoinFlowUtils.events.emit('dataChanged');
+        await wait(900);
+        const toast = document.getElementById('coinflow-toast');
+        if (toast) toast.remove();
 
         const stats = await window.CoinFlowDB.getMonthlyStats(2026, 5);
-        const savedTx = stats.transactions.find(tx => tx.note === note && tx.amount === 12.34);
+        const savedTx = stats.transactions.find(tx => tx.note === note && tx.amount === 25);
         const exportResults = {
           csv: await window.CoinFlowExcel.exportToCSV(2026, 5),
           excel: await window.CoinFlowExcel.exportToExcel(2026, 5),
           html: await window.CoinFlowExportHTML.exportToHTML(2026, 5)
         };
 
-        click('.nav-item[data-target="transactions"]');
-        click('.nav-item[data-target="statistics"]');
-        click('.nav-item[data-target="dashboard"]');
-        await wait(800);
+        click('.sidebar-nav-item[data-target="transactions"]');
+        click('.sidebar-nav-item[data-target="statistics"]');
+        click('.sidebar-nav-item[data-target="dashboard"]');
+        click('.sidebar-nav-item[data-target="transactions"]');
+        click('.sidebar-nav-item[data-target="dashboard"]');
+        await wait(500);
+
+        amountInput.value = '25.00';
+        document.getElementById('add-note-input').value = '麻辣香锅';
+        document.getElementById('add-date-input').value = '2026-05-30';
+        const datePickerInstance = window.CoinFlowDatePicker.attach(document.getElementById('add-date-input'), {
+          trigger: document.getElementById('add-date-trigger')
+        });
+        if (datePickerInstance && typeof datePickerInstance.updateLabel === 'function') {
+          datePickerInstance.updateLabel();
+        }
+        click('#add-date-trigger');
+        await wait(120);
 
         const appRect = document.getElementById('app-container').getBoundingClientRect();
-        const navRect = document.querySelector('.bottom-nav').getBoundingClientRect();
-        const activePages = Array.from(document.querySelectorAll('.page.active')).map(el => el.id);
+        const sidebarRect = document.querySelector('.desktop-sidebar').getBoundingClientRect();
+        const quickAddRect = document.querySelector('.desktop-quick-add').getBoundingClientRect();
+        const activePages = Array.from(document.querySelectorAll('.desktop-page.active')).map(el => el.id);
+        const bottomNavPresent = Boolean(document.querySelector('.bottom-nav'));
+        const pageAddPresent = Boolean(document.getElementById('page-add'));
 
         return {
           title: document.title,
@@ -222,7 +265,10 @@ async function runSmokeTest(mainWindow) {
           exportResults,
           appWidth: Math.round(appRect.width),
           appHeight: Math.round(appRect.height),
-          navWidth: Math.round(navRect.width)
+          sidebarWidth: Math.round(sidebarRect.width),
+          quickAddWidth: Math.round(quickAddRect.width),
+          bottomNavPresent,
+          pageAddPresent
         };
       })()
     `, true);
@@ -235,7 +281,66 @@ async function runSmokeTest(mainWindow) {
       result.screenshotError = screenshotError.message;
     }
 
+    const layoutSizes = [
+      { width: 1366, height: 768 },
+      { width: 1280, height: 800 },
+      { width: 1180, height: 720 }
+    ];
+    result.layoutChecks = [];
+    for (const size of layoutSizes) {
+      mainWindow.unmaximize();
+      mainWindow.setBounds({ width: size.width, height: size.height });
+      await wait(650);
+      const contentSize = mainWindow.getContentSize();
+      const check = await mainWindow.webContents.executeJavaScript(`
+        (() => {
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          document.body.classList.remove('quick-add-open');
+          const shell = document.getElementById('app-container');
+          const shellRect = shell.getBoundingClientRect();
+          const activePages = Array.from(document.querySelectorAll('.desktop-page.active')).map(el => el.id);
+          const rootOverflow = document.documentElement.scrollWidth > window.innerWidth + 2;
+          const bodyOverflow = document.body.scrollWidth > window.innerWidth + 2;
+          const offenders = Array.from(document.querySelectorAll('body *')).map((el) => {
+            const rect = el.getBoundingClientRect();
+            return {
+              tag: el.tagName.toLowerCase(),
+              id: el.id || '',
+              className: typeof el.className === 'string' ? el.className : '',
+              left: Math.round(rect.left),
+              right: Math.round(rect.right),
+              width: Math.round(rect.width)
+            };
+          }).filter(item => item.right > window.innerWidth + 2 || item.left < -2).slice(0, 8);
+          return {
+            requestedWidth: ${size.width},
+            requestedHeight: ${size.height},
+            contentWidth: ${contentSize[0]},
+            contentHeight: ${contentSize[1]},
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+            rootScrollWidth: document.documentElement.scrollWidth,
+            bodyScrollWidth: document.body.scrollWidth,
+            shellWidth: Math.round(shellRect.width),
+            shellHeight: Math.round(shellRect.height),
+            activePages,
+            horizontalOverflow: rootOverflow || bodyOverflow,
+            offenders
+          };
+        })()
+      `, true);
+      result.layoutChecks.push(check);
+    }
+
     result.rendererMessages = mainWindow.__coinflowRendererMessages;
+    const badLayout = result.layoutChecks.find(check => check.horizontalOverflow || check.activePages.length !== 1);
+    if (badLayout) {
+      throw new Error(`Desktop layout check failed: ${JSON.stringify(badLayout)}`);
+    }
+
     console.log(`COINFLOW_SMOKE_RESULT=${JSON.stringify(result)}`);
     if (result.screenshotPath) {
       console.log(`COINFLOW_SMOKE_SCREENSHOT=${screenshotPath}`);

@@ -32,15 +32,15 @@ function getDB() {
 // 默认智能建议预算配置
 const DEFAULT_BUDGET = {
   monthlyIncome: 3000,
-  savingsTarget: 1000,
+  savingsTarget: 0,
   categoryBudgets: {
-    food: 800,
-    drinks: 200,
-    transport: 100,
-    shopping: 300,
-    entertainment: 150,
-    housing: 200,
-    social: 150,
+    food: 1000,
+    drinks: 300,
+    shopping: 700,
+    transport: 220,
+    entertainment: 320,
+    housing: 240,
+    social: 120,
     study: 100
   },
   lastResetMonth: ""

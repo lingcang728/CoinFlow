@@ -12,9 +12,11 @@
   const btnImport = document.getElementById('btn-import-excel');
   const inputFile = document.getElementById('input-file-excel');
   const btnExport = document.getElementById('btn-export-excel');
+  const searchInput = document.getElementById('tx-search-input');
 
   let currentCategoryFilter = 'all'; // 默认显示全部分类
   let currentSortType = 'time-desc'; // time-desc, time-asc, amount-desc, amount-asc
+  let searchTerm = '';
   let editModalEl = null;
   let hasBoundEvents = false;
 
@@ -28,21 +30,31 @@
 
       // 2. 绑定排序切换
       btnToggleSort.onclick = toggleSort;
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          searchTerm = searchInput.value.trim().toLowerCase();
+          render();
+        });
+      }
 
       // 3. 绑定导入导出
-      btnImport.onclick = () => inputFile.click();
-      inputFile.onchange = handleImport;
+      if (btnImport && inputFile) {
+        btnImport.onclick = () => inputFile.click();
+        inputFile.onchange = handleImport;
+      }
       
       // 绑定导出下拉菜单
       const dropdown = document.getElementById('export-dropdown');
-      btnExport.onclick = (e) => {
-        e.stopPropagation();
-        window.CoinFlowUtils.triggerHaptic('light');
-        dropdown.classList.toggle('active');
-      };
+      if (btnExport && dropdown) {
+        btnExport.onclick = (e) => {
+          e.stopPropagation();
+          window.CoinFlowUtils.triggerHaptic('light');
+          dropdown.classList.toggle('active');
+        };
+      }
 
       document.addEventListener('click', () => {
-        dropdown.classList.remove('active');
+        if (dropdown) dropdown.classList.remove('active');
       });
 
       document.getElementById('export-excel-item').onclick = () => handleExport('excel');
@@ -61,6 +73,7 @@
     // 保留“全部”标签，其余清空重新生成
     const allTag = categoriesScroll.querySelector('[data-category="all"]');
     categoriesScroll.innerHTML = '';
+    if (!allTag) return;
     categoriesScroll.appendChild(allTag);
 
     // 绑定全部标签点击
@@ -190,6 +203,13 @@
       let filteredTxs = transactions;
       if (currentCategoryFilter !== 'all') {
         filteredTxs = transactions.filter(tx => tx.category === currentCategoryFilter);
+      }
+      if (searchTerm) {
+        filteredTxs = filteredTxs.filter(tx => {
+          const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { name: tx.category };
+          const searchable = `${tx.note || ''} ${cat.name || ''} ${tx.date || ''}`.toLowerCase();
+          return searchable.includes(searchTerm);
+        });
       }
 
       // 2. 根据排序类型排序

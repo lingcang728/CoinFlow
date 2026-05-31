@@ -2,284 +2,355 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' coinflow:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: coinflow:; connect-src 'self' coinflow:; worker-src 'self' coinflow:; manifest-src 'self'; object-src 'none'; base-uri 'self';">
-  <title>CoinFlow 零花钱管家</title>
+  <title>CoinFlow 桌面记账</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <meta name="theme-color" content="#0a0a0f">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/desktop.css">
 </head>
 <body>
-  <div id="app-container" class="app-shell">
+  <div id="app-container" class="desktop-shell">
     <svg class="svg-defs" width="0" height="0" aria-hidden="true">
       <defs>
         <linearGradient id="orange-gold-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#FF8C00" />
-          <stop offset="100%" stop-color="#FFD700" />
+          <stop offset="0%" stop-color="#FF8C00"></stop>
+          <stop offset="100%" stop-color="#FFD700"></stop>
         </linearGradient>
       </defs>
     </svg>
 
-    <div class="page-wrapper">
-      <section id="page-dashboard" class="page active">
-        <header class="app-topbar">
-          <div class="brand-lockup">
-            <img src="favicon.png" class="brand-logo" alt="CoinFlow logo">
-            <span class="brand-name">CoinFlow</span>
-          </div>
-          <div class="month-toolbar">
-            <button id="prev-month" class="icon-button month-nav" aria-label="上个月">‹</button>
-            <div id="current-month-display" class="month-display">2026年05月</div>
-            <button id="next-month" class="icon-button month-nav" aria-label="下个月">›</button>
-          </div>
-          <button id="btn-budget-settings" class="icon-button settings-button" aria-label="预算设置">⚙</button>
-        </header>
+    <aside class="desktop-sidebar" aria-label="CoinFlow 导航">
+      <div class="sidebar-brand">
+        <img src="favicon.png" class="sidebar-logo" alt="CoinFlow logo">
+        <span>CoinFlow</span>
+      </div>
 
-        <div class="dashboard-grid">
-          <article id="dashboard-summary-card" class="surface-card summary-card">
-            <div class="card-eyebrow">本月已消费</div>
-            <div id="total-spent-display" class="summary-amount">¥0.00</div>
-            <div class="summary-meta">
-              <span>剩余预算 <strong id="remaining-budget-display">¥0.00</strong></span>
-              <span>月度预算 <strong id="total-budget-display">¥0.00</strong></span>
-            </div>
-            <div class="progress-bar-container">
-              <div id="total-budget-progress" class="progress-bar success"></div>
-            </div>
-            <div class="progress-scale">
-              <span>0%</span><span>50%</span><span>100%</span>
-            </div>
-          </article>
+      <nav class="sidebar-nav" aria-label="主导航">
+        <button class="sidebar-nav-item active" type="button" data-target="dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 10.5 12 3l9 7.5v9A1.5 1.5 0 0 1 19.5 21h-4.25v-6.25h-6.5V21H4.5A1.5 1.5 0 0 1 3 19.5v-9Z"></path>
+          </svg>
+          <span>看板</span>
+        </button>
+        <button class="sidebar-nav-item" type="button" data-target="transactions">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 6.5h14M5 12h14M5 17.5h14"></path>
+            <path d="M3 6.5h.01M3 12h.01M3 17.5h.01"></path>
+          </svg>
+          <span>明细</span>
+        </button>
+        <button class="sidebar-nav-item" type="button" data-target="add">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.75"></circle>
+            <path d="M12 7.75v8.5M7.75 12h8.5"></path>
+          </svg>
+          <span>记账</span>
+        </button>
+        <button class="sidebar-nav-item" type="button" data-target="statistics">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 19V12M12 19V5M18 19V9"></path>
+          </svg>
+          <span>统计</span>
+        </button>
+      </nav>
 
-          <article class="surface-card chart-card doughnut-card">
-            <div class="card-header">
-              <h2>消费分类结构</h2>
+      <div class="sidebar-footer">
+        <button id="btn-budget-settings" class="sidebar-utility" type="button" data-open-budget>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.25"></circle>
+            <path d="M19.4 15a1.75 1.75 0 0 0 .35 1.93l.06.06-2.82 2.82-.06-.06A1.75 1.75 0 0 0 15 19.4a1.75 1.75 0 0 0-1 1.6V21h-4v-.09a1.75 1.75 0 0 0-1-1.6 1.75 1.75 0 0 0-1.93.35l-.06.06-2.82-2.82.06-.06A1.75 1.75 0 0 0 4.6 15a1.75 1.75 0 0 0-1.6-1H3v-4h.09a1.75 1.75 0 0 0 1.6-1 1.75 1.75 0 0 0-.35-1.93l-.06-.06 2.82-2.82.06.06A1.75 1.75 0 0 0 9 4.6a1.75 1.75 0 0 0 1-1.6V3h4v.09a1.75 1.75 0 0 0 1 1.6 1.75 1.75 0 0 0 1.93-.35l.06-.06 2.82 2.82-.06.06A1.75 1.75 0 0 0 19.4 9a1.75 1.75 0 0 0 1.6 1h.09v4H21a1.75 1.75 0 0 0-1.6 1Z"></path>
+          </svg>
+          <span>设置</span>
+        </button>
+        <button class="sidebar-utility" type="button" data-target="about">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 10.75v5.5M12 7.6h.01"></path>
+          </svg>
+          <span>关于</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="desktop-main">
+      <header class="desktop-topbar">
+        <div class="month-toolbar desktop-month-toolbar">
+          <span class="month-calendar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M7 3v4M17 3v4M4.5 9.5h15M6 5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 5Z"></path>
+            </svg>
+          </span>
+          <div id="current-month-display" class="month-display">2026年05月</div>
+          <button id="prev-month" class="icon-button month-nav" type="button" aria-label="上个月">‹</button>
+          <button id="next-month" class="icon-button month-nav" type="button" aria-label="下个月">›</button>
+        </div>
+
+        <div class="topbar-metrics" aria-live="polite">
+          <span>月预算: <strong id="topbar-budget-display">¥0.00</strong></span>
+          <span class="metric-divider"></span>
+          <span>日均支出: <strong id="topbar-average-display">¥0.00</strong></span>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="btn-import-excel" class="btn-secondary desktop-action-btn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12M8 7l4-4 4 4"></path>
+              <path d="M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13"></path>
+            </svg>
+            导入
+          </button>
+          <input type="file" id="input-file-excel" class="hidden-file-input" accept=".xlsx,.xls,.csv">
+          <div class="export-wrap">
+            <button id="btn-export-excel" class="btn-secondary desktop-action-btn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21V9M8 17l4 4 4-4"></path>
+                <path d="M5 11V5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5V11"></path>
+              </svg>
+              导出
+              <span class="button-caret">⌄</span>
+            </button>
+            <div id="export-dropdown" class="dropdown-menu export-menu">
+              <button class="dropdown-item" type="button" id="export-excel-item">导出 Excel</button>
+              <button class="dropdown-item" type="button" id="export-csv-item">导出 CSV</button>
+              <button class="dropdown-item" type="button" id="export-html-item">HTML 报告</button>
             </div>
-            <div class="doughnut-layout">
-              <div class="doughnut-stage">
-                <canvas id="chart-doughnut-dashboard"></canvas>
-                <div class="chart-center-label">
-                  <div id="chart-center-percent">0%</div>
-                  <span>已用预算</span>
+          </div>
+          <button class="btn-primary desktop-action-btn desktop-add-shortcut" type="button" data-target="add">新增记录</button>
+        </div>
+      </header>
+
+      <div class="desktop-content">
+        <section id="page-dashboard" class="desktop-page active" aria-label="看板">
+          <div class="dashboard-workspace">
+            <div class="dashboard-left-stack">
+              <article id="dashboard-summary-card" class="surface-card desktop-card summary-card">
+                <div class="budget-summary-cols">
+                  <div class="budget-summary-block">
+                    <div class="card-eyebrow">本月已消费</div>
+                    <div id="total-spent-display" class="summary-amount">¥0.00</div>
+                    <span>预算进度 <strong id="budget-progress-text">0%</strong></span>
+                  </div>
+                  <div class="budget-summary-block">
+                    <div class="card-eyebrow">剩余预算</div>
+                    <div id="remaining-budget-display" class="summary-amount success">¥0.00</div>
+                    <span>剩余 <strong id="remaining-budget-ratio">0%</strong></span>
+                  </div>
+                  <div class="budget-summary-block">
+                    <div class="card-eyebrow">月度预算</div>
+                    <div id="total-budget-display" class="summary-amount neutral">¥0.00</div>
+                    <span>日均支出 <strong id="summary-daily-average">¥0.00</strong></span>
+                  </div>
+                </div>
+                <div class="progress-bar-container desktop-progress">
+                  <div id="total-budget-progress" class="progress-bar success"></div>
+                </div>
+                <div class="progress-scale">
+                  <span>0%</span><span>50%</span><span>100%</span>
+                </div>
+              </article>
+
+              <article class="surface-card desktop-card chart-card doughnut-card">
+                <div class="card-header">
+                  <h2>消费分类结构</h2>
+                </div>
+                <div class="doughnut-layout">
+                  <div class="doughnut-stage">
+                    <canvas id="chart-doughnut-dashboard"></canvas>
+                    <div class="chart-center-label">
+                      <div id="chart-center-percent">0%</div>
+                      <span>已用预算</span>
+                    </div>
+                  </div>
+                  <div id="chart-legend-container" class="chart-legend-list"></div>
+                </div>
+              </article>
+
+              <article class="surface-card desktop-card recent-card">
+                <div class="card-header">
+                  <h2>最近记录</h2>
+                  <button id="btn-view-all-transactions" class="text-button" type="button">查看更多</button>
+                </div>
+                <div id="dashboard-recent-list" class="compact-list"></div>
+              </article>
+
+              <article class="surface-card desktop-card budget-card">
+                <div class="card-header">
+                  <h2>分类预算进度</h2>
+                </div>
+                <div id="dashboard-category-progress-list" class="budget-progress-list"></div>
+              </article>
+            </div>
+
+            <article class="surface-card desktop-card dashboard-ledger-card">
+              <div class="card-header ledger-header">
+                <h2>账单明细</h2>
+              </div>
+              <div id="dashboard-ledger-filters" class="dashboard-filter-row"></div>
+              <div class="ledger-sort-row">
+                <button id="dashboard-ledger-sort" class="desktop-sort-button" type="button">排序：时间降序 <span>⌄</span></button>
+              </div>
+              <div id="dashboard-ledger-list" class="dashboard-ledger-list"></div>
+              <footer class="desktop-summary-footer">
+                <span>本月合计支出: <strong id="dashboard-month-total">¥0.00</strong></span>
+                <span><strong id="dashboard-month-count">0</strong> 笔记录 | 日均 <strong id="dashboard-month-average">¥0.00</strong></span>
+              </footer>
+            </article>
+          </div>
+        </section>
+
+        <section id="page-transactions" class="desktop-page" aria-label="明细">
+          <div class="desktop-page-stack">
+            <header class="desktop-section-header">
+              <div>
+                <h1>账单明细</h1>
+                <p>按月份、分类和备注快速管理本地账单</p>
+              </div>
+            </header>
+
+            <div class="surface-card desktop-card filter-card transaction-filter-card">
+              <div class="filter-header">
+                <span>分类筛选</span>
+                <div class="filter-tools">
+                  <input id="tx-search-input" class="form-input desktop-search-input" type="search" placeholder="搜索备注或分类">
+                  <button id="btn-toggle-sort" class="text-button" type="button">
+                    <span>⇅</span><span id="sort-text-display">时间降序</span>
+                  </button>
                 </div>
               </div>
-              <div id="chart-legend-container" class="chart-legend-list"></div>
-            </div>
-          </article>
-
-          <article class="surface-card budget-card">
-            <div class="card-header">
-              <h2>分类预算进度</h2>
-            </div>
-            <div id="dashboard-category-progress-list" class="budget-progress-list"></div>
-          </article>
-
-          <article class="surface-card recent-card">
-            <div class="card-header">
-              <h2>最近记录</h2>
-              <button id="btn-view-all-transactions" class="text-button">查看更多</button>
-            </div>
-            <div id="dashboard-recent-list" class="compact-list"></div>
-          </article>
-        </div>
-      </section>
-
-      <section id="page-transactions" class="page">
-        <header class="page-header">
-          <div>
-            <h1>账单明细</h1>
-            <p>查看、筛选、编辑与导出本月账单</p>
-          </div>
-          <div class="data-actions">
-            <button id="btn-import-excel" class="btn-secondary">▣ 导入</button>
-            <input type="file" id="input-file-excel" class="hidden-file-input" accept=".xlsx,.xls,.csv">
-            <div class="export-wrap">
-              <button id="btn-export-excel" class="btn-accent">▣ 导出 ▾</button>
-              <div id="export-dropdown" class="dropdown-menu export-menu">
-                <button class="dropdown-item" id="export-excel-item">📊 导出 Excel</button>
-                <button class="dropdown-item" id="export-csv-item">📄 导出 CSV</button>
-                <button class="dropdown-item" id="export-html-item">🌐 HTML 报告</button>
+              <div id="filter-categories-scroll" class="chip-scroll">
+                <button class="shortcut-tag active" type="button" data-category="all">全部</button>
               </div>
             </div>
-          </div>
-        </header>
 
-        <div class="surface-card filter-card">
-          <div class="filter-header">
-            <span>分类筛选</span>
-            <button id="btn-toggle-sort" class="text-button">
-              <span>⇅</span><span id="sort-text-display">时间降序</span>
+            <div id="transactions-list-container" class="transactions-list desktop-transactions-list"></div>
+
+            <div id="transactions-month-summary" class="month-summary-bar desktop-summary-footer">
+              <div>本月合计支出 <strong id="tx-month-spent">¥0.00</strong></div>
+              <div><span id="tx-month-count">0</span> 笔记录 | 日均 <strong id="tx-month-avg">¥0.00</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-statistics" class="desktop-page" aria-label="统计">
+          <div class="desktop-page-stack">
+            <header class="desktop-section-header">
+              <div>
+                <h1>统计分析</h1>
+                <p>趋势、热力与分类排行</p>
+              </div>
+            </header>
+
+            <div class="statistics-grid">
+              <article class="surface-card desktop-card chart-card stat-daily-card">
+                <div class="card-header">
+                  <h2>每日支出趋势</h2>
+                </div>
+                <div class="chart-stage chart-stage-wide">
+                  <canvas id="chart-bar-daily"></canvas>
+                </div>
+              </article>
+
+              <article class="surface-card desktop-card heatmap-card">
+                <div class="card-header">
+                  <h2>消费日历热力</h2>
+                </div>
+                <div id="calendar-heatmap-container" class="heatmap-grid"></div>
+                <div class="heatmap-legend">
+                  <span>少</span>
+                  <span class="heatmap-swatch heatmap-swatch-0"></span>
+                  <span class="heatmap-swatch heatmap-swatch-1"></span>
+                  <span class="heatmap-swatch heatmap-swatch-2"></span>
+                  <span class="heatmap-swatch heatmap-swatch-3"></span>
+                  <span>多</span>
+                </div>
+                <div id="heatmap-day-detail" class="heatmap-detail">点击上方日期查看当天明细</div>
+              </article>
+
+              <article class="surface-card desktop-card chart-card trend-card">
+                <div class="card-header">
+                  <h2>月度收支走势 (半年)</h2>
+                </div>
+                <div class="chart-stage chart-stage-wide">
+                  <canvas id="chart-line-trend"></canvas>
+                </div>
+              </article>
+
+              <article class="surface-card desktop-card rank-card">
+                <div class="card-header">
+                  <h2>消费分类排行</h2>
+                </div>
+                <div id="statistics-rank-list" class="rank-list"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="desktop-quick-add" aria-label="添加记录">
+      <div class="quick-add-header">
+        <h2>添加记录</h2>
+      </div>
+      <form id="desktop-record-form" class="quick-add-form" autocomplete="off">
+        <section class="quick-add-section">
+          <label class="section-label" for="add-amount-input">消费金额</label>
+          <div class="amount-input-wrap">
+            <input type="number" inputmode="decimal" step="0.01" min="0" id="add-amount-input" class="amount-input" placeholder="0.00">
+            <button type="button" id="btn-clear-amount" class="clear-amount-button" aria-label="清空金额">×</button>
+          </div>
+        </section>
+
+        <section class="quick-add-section">
+          <div class="section-row">
+            <span class="section-label">选择类别</span>
+            <span id="selected-category-budget-status" class="category-budget-status"></span>
+          </div>
+          <div class="add-category-grid"></div>
+        </section>
+
+        <section class="quick-add-section">
+          <label class="section-label" for="add-date-input">消费日期</label>
+          <div class="date-picker-anchor">
+            <input type="hidden" id="add-date-input">
+            <button type="button" id="add-date-trigger" class="date-field date-field-full">
+              <span data-date-label>选择日期</span>
+              <span class="date-field-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 3v4M17 3v4M4.5 9.5h15M6 5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 5Z"></path>
+                </svg>
+              </span>
             </button>
           </div>
-          <div id="filter-categories-scroll" class="chip-scroll">
-            <button class="shortcut-tag active" data-category="all">全部</button>
-          </div>
-        </div>
+        </section>
 
-        <div id="transactions-list-container" class="transactions-list"></div>
+        <section class="quick-add-section">
+          <label class="section-label" for="add-note-input">备注</label>
+          <textarea id="add-note-input" class="form-input note-textarea" placeholder="添加备注..." maxlength="40" rows="4"></textarea>
+        </section>
 
-        <div id="transactions-month-summary" class="month-summary-bar">
-          <div>本月合计支出 <strong id="tx-month-spent">¥0.00</strong></div>
-          <div><span id="tx-month-count">0</span> 笔记录 | 日均 <strong id="tx-month-avg">¥0.00</strong></div>
-        </div>
-      </section>
+        <section class="quick-add-section shortcut-section">
+          <span class="section-label">常用备注</span>
+          <div id="shortcut-notes-container" class="tag-container"></div>
+        </section>
 
-      <section id="page-add" class="page">
-        <header class="page-header">
-          <div>
-            <h1>添加记录</h1>
-            <p>快速记录今日消费</p>
-          </div>
-        </header>
-
-        <article id="add-record-card" class="surface-card add-record-card">
-          <section class="add-panel category-panel">
-            <div class="section-label">选择消费类别</div>
-            <div class="add-category-grid"></div>
-          </section>
-
-          <section class="add-panel amount-panel">
-            <div class="amount-meta">
-              <span>消费金额 (元)</span>
-              <span id="selected-category-budget-status"></span>
-            </div>
-            <div class="amount-display">
-              <span>¥</span>
-              <strong id="keyboard-input-amount">0</strong>
-            </div>
-          </section>
-
-          <section class="add-panel note-panel">
-            <input type="text" id="add-note-input" class="form-input" placeholder="添加备注 (例如: 蜜雪冰城, 拼多多)..." maxlength="30">
-            <div id="shortcut-notes-container" class="tag-container"></div>
-          </section>
-
-          <section class="add-panel date-panel">
-            <div class="date-control-row">
-              <span class="field-label">消费日期</span>
-              <div class="date-picker-anchor">
-                <input type="hidden" id="add-date-input">
-                <button type="button" id="add-date-trigger" class="date-field">
-                  <span data-date-label>选择日期</span>
-                  <span class="date-field-icon" aria-hidden="true">▣</span>
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="keyboard-grid">
-            <button class="key-btn" data-key="1">1</button>
-            <button class="key-btn" data-key="2">2</button>
-            <button class="key-btn" data-key="3">3</button>
-            <button class="key-btn" data-key="4">4</button>
-            <button class="key-btn" data-key="5">5</button>
-            <button class="key-btn" data-key="6">6</button>
-            <button class="key-btn" data-key="7">7</button>
-            <button class="key-btn" data-key="8">8</button>
-            <button class="key-btn" data-key="9">9</button>
-            <button class="key-btn" data-key=".">.</button>
-            <button class="key-btn" data-key="0">0</button>
-            <button class="key-btn" data-key="backspace">⌫</button>
-          </section>
-
-          <button id="btn-save-record" class="btn-primary save-record-button">确认保存</button>
-        </article>
-      </section>
-
-      <section id="page-statistics" class="page">
-        <header class="page-header">
-          <div>
-            <h1>统计分析</h1>
-            <p>趋势、热力与分类排行</p>
-          </div>
-        </header>
-
-        <article class="surface-card chart-card stat-daily-card">
-          <div class="card-header">
-            <h2>每日支出趋势</h2>
-          </div>
-          <div class="chart-stage chart-stage-wide">
-            <canvas id="chart-bar-daily"></canvas>
-          </div>
-        </article>
-
-        <article class="surface-card heatmap-card">
-          <div class="card-header">
-            <h2>消费日历热力</h2>
-          </div>
-          <div id="calendar-heatmap-container" class="heatmap-grid"></div>
-          <div class="heatmap-legend">
-            <span>少</span>
-            <span class="heatmap-swatch heatmap-swatch-0"></span>
-            <span class="heatmap-swatch heatmap-swatch-1"></span>
-            <span class="heatmap-swatch heatmap-swatch-2"></span>
-            <span class="heatmap-swatch heatmap-swatch-3"></span>
-            <span>多</span>
-          </div>
-          <div id="heatmap-day-detail" class="heatmap-detail">点击上方日期查看当天明细</div>
-        </article>
-
-        <article class="surface-card chart-card trend-card">
-          <div class="card-header">
-            <h2>月度收支走势 (半年)</h2>
-          </div>
-          <div class="chart-stage chart-stage-wide">
-            <canvas id="chart-line-trend"></canvas>
-          </div>
-        </article>
-
-        <article class="surface-card rank-card">
-          <div class="card-header">
-            <h2>消费分类排行</h2>
-          </div>
-          <div id="statistics-rank-list" class="rank-list"></div>
-        </article>
-      </section>
-    </div>
-
-    <nav class="bottom-nav" aria-label="主导航">
-      <div class="nav-item active" data-target="dashboard">
-        <svg viewBox="0 0 24 24">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-          <polyline points="9 22 9 12 15 12 15 22"></polyline>
-        </svg>
-        <span>看板</span>
-      </div>
-      <div class="nav-item" data-target="transactions">
-        <svg viewBox="0 0 24 24">
-          <line x1="8" y1="6" x2="21" y2="6"></line>
-          <line x1="8" y1="12" x2="21" y2="12"></line>
-          <line x1="8" y1="18" x2="21" y2="18"></line>
-          <line x1="3" y1="6" x2="3.01" y2="6"></line>
-          <line x1="3" y1="12" x2="3.01" y2="12"></line>
-          <line x1="3" y1="18" x2="3.01" y2="18"></line>
-        </svg>
-        <span>明细</span>
-      </div>
-      <div class="nav-item" data-target="add">
-        <svg viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="16"></line>
-          <line x1="8" y1="12" x2="16" y2="12"></line>
-        </svg>
-        <span>记账</span>
-      </div>
-      <div class="nav-item" data-target="statistics">
-        <svg viewBox="0 0 24 24">
-          <line x1="18" y1="20" x2="18" y2="10"></line>
-          <line x1="12" y1="20" x2="12" y2="4"></line>
-          <line x1="6" y1="20" x2="6" y2="14"></line>
-        </svg>
-        <span>统计</span>
-      </div>
-    </nav>
+        <button id="btn-save-record" class="btn-primary save-record-button" type="submit">
+          <span>确认保存</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="m8.4 12.2 2.3 2.3 4.9-5"></path>
+          </svg>
+        </button>
+      </form>
+    </aside>
   </div>
 
   <div id="modal-budget-settings" class="modal-overlay">
-    <div class="bottom-sheet">
+    <div class="bottom-sheet desktop-modal">
       <div class="modal-header">
         <h2>预算与智能规划</h2>
-        <button id="btn-close-budget-modal" class="icon-button" aria-label="关闭">×</button>
+        <button id="btn-close-budget-modal" class="icon-button" type="button" aria-label="关闭">×</button>
       </div>
 
       <form id="form-budget-settings">

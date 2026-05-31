@@ -47,7 +47,11 @@
     });
 
     // 2. 绑定事件
-    btnSettings.addEventListener('click', openModal);
+    const budgetOpenButtons = new Set(Array.from(document.querySelectorAll('[data-open-budget]')));
+    if (btnSettings) budgetOpenButtons.add(btnSettings);
+    budgetOpenButtons.forEach((button) => {
+      button.addEventListener('click', openModal);
+    });
     btnClose.addEventListener('click', closeModal);
     
     // 输入实时更新显示数据
@@ -199,6 +203,8 @@
 
   // 挂载到全局
   window.CoinFlowBudget = {
-    init
+    init,
+    openModal,
+    closeModal
   };
 })();
