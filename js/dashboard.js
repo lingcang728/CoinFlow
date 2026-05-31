@@ -158,21 +158,13 @@
           const spent = stats.categorySpent[key] || 0;
           if (spent > 0) {
             const legendItem = document.createElement('div');
-            legendItem.style.cssText = `
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              background: var(--glass-bg);
-              border: 1px solid var(--glass-border);
-              padding: 6px 12px;
-              border-radius: 12px;
-              white-space: nowrap;
-              font-size: 11px;
-            `;
+            const ratio = stats.totalSpent > 0 ? ((spent / stats.totalSpent) * 100).toFixed(1) : '0.0';
+            legendItem.className = 'legend-row';
             legendItem.innerHTML = `
-              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${cat.color};"></span>
-              <span style="color:var(--text-secondary);">${cat.name}</span>
-              <span style="font-weight:600; color:#fff; flex-shrink:0;">¥${spent.toFixed(1)}</span>
+              <span class="legend-dot" style="background:${cat.color};"></span>
+              <span class="legend-name">${cat.name}</span>
+              <span class="legend-value">¥${spent.toFixed(1)}</span>
+              <span class="legend-ratio">${ratio}%</span>
             `;
             legendContainer.appendChild(legendItem);
           }
@@ -203,28 +195,20 @@
 
         const div = document.createElement('div');
         div.className = isOver ? 'warning-pulse' : '';
-        div.style.cssText = `
-          display: flex;
-          flex-direction: column;
-          padding: ${isOver ? '8px 10px' : '0'};
-          border-radius: ${isOver ? '10px' : '0'};
-          background: ${isOver ? 'rgba(244,67,54,0.05)' : 'none'};
-          border: ${isOver ? '1px solid rgba(244,67,54,0.1)' : 'none'};
-          transition: var(--transition-smooth);
-        `;
+        div.classList.add('budget-progress-item');
         div.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span class="bg-${cat.class}" style="width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px;">${cat.emoji}</span>
-              <span style="font-weight:500;">${cat.name}</span>
+          <div class="budget-progress-top">
+            <div class="budget-progress-title">
+              <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
+              <span>${cat.name}</span>
               ${warnText}
             </div>
-            <div style="color:var(--text-secondary);">
-              <span style="color:#fff; font-weight:500;">¥${spent.toFixed(0)}</span>
-              <span style="color:var(--text-muted);">/ ¥${budget.toFixed(0)}</span>
+            <div class="budget-progress-value">
+              <span>¥${spent.toFixed(0)}</span>
+              <small>/ ¥${budget.toFixed(0)}</small>
             </div>
           </div>
-          <div class="progress-bar-container" style="height:6px; margin-top:6px;">
+          <div class="progress-bar-container">
             <div class="progress-bar ${colorClass}" style="width: ${Math.min(percent, 100)}%;"></div>
           </div>
         `;
@@ -242,26 +226,19 @@
           const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, color: '#fff', class: 'food' };
           const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
           const div = document.createElement('div');
-          div.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            cursor: pointer;
-          `;
+          div.className = 'tx-row';
           div.onclick = () => {
             window.navigateToPage('transactions');
           };
           div.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="bg-${cat.class}" style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px;">${cat.emoji}</span>
+            <div class="tx-left">
+                <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
               <div>
-                <div class="tx-note-text" style="font-size:13px; font-weight:500;">${label}</div>
-                <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${window.CoinFlowUtils.formatFriendlyDate(tx.date)}</div>
+                <div class="tx-title">${label}</div>
+                <div class="tx-subtitle">${window.CoinFlowUtils.formatFriendlyDate(tx.date)}</div>
               </div>
             </div>
-            <div style="font-size:14px; font-weight:700; color:var(--primary-gold);">-¥${tx.amount.toFixed(2)}</div>
+            <div class="tx-amount">-¥${tx.amount.toFixed(2)}</div>
           `;
           recentList.appendChild(div);
         });

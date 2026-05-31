@@ -1,4 +1,4 @@
-const { app, BrowserWindow, net, protocol, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -65,6 +65,7 @@ function createMainWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
       sandbox: true
     }
   });
@@ -88,6 +89,61 @@ function createMainWindow() {
 
   mainWindow.loadURL(`${APP_SCHEME}://app/index.html`);
   return mainWindow;
+}
+
+function normalizeSaveData(data, encoding = 'utf8') {
+  if (typeof data === 'string') {
+    return Buffer.from(data, encoding);
+  }
+
+  if (data instanceof ArrayBuffer) {
+    return Buffer.from(data);
+  }
+
+  if (ArrayBuffer.isView(data)) {
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  }
+
+  if (data && data.type === 'Buffer' && Array.isArray(data.data)) {
+    return Buffer.from(data.data);
+  }
+
+  if (Array.isArray(data)) {
+    return Buffer.from(data);
+  }
+
+  throw new Error('Unsupported file payload');
+}
+
+function registerIpcHandlers() {
+  ipcMain.handle('coinflow:save-file', async (event, payload = {}) => {
+    const ownerWindow = BrowserWindow.fromWebContents(event.sender);
+    const defaultPath = String(payload.defaultPath || 'CoinFlow-export.dat');
+    const filters = Array.isArray(payload.filters) ? payload.filters : [{ name: 'All Files', extensions: ['*'] }];
+    const buffer = normalizeSaveData(payload.data, payload.encoding);
+
+    if (process.env.COINFLOW_SMOKE_TEST === '1') {
+      const exportDir = process.env.COINFLOW_SMOKE_EXPORT_DIR || path.join(os.tmpdir(), 'coinflow-smoke-exports');
+      await fs.promises.mkdir(exportDir, { recursive: true });
+      const safeName = path.basename(defaultPath).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+      const filePath = path.join(exportDir, safeName || 'CoinFlow-export.dat');
+      await fs.promises.writeFile(filePath, buffer);
+      return { canceled: false, filePath };
+    }
+
+    const result = await dialog.showSaveDialog(ownerWindow, {
+      title: '保存 CoinFlow 导出文件',
+      defaultPath,
+      filters
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true };
+    }
+
+    await fs.promises.writeFile(result.filePath, buffer);
+    return { canceled: false, filePath: result.filePath };
+  });
 }
 
 function waitForRendererLoad(mainWindow) {
@@ -126,6 +182,11 @@ async function runSmokeTest(mainWindow) {
 
         window.navigateToPage('add');
         await wait(600);
+        click('#add-date-trigger');
+        await wait(120);
+        const datePickerVisible = Boolean(document.querySelector('.date-picker-popover:not([hidden])'));
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        await wait(80);
         ['1', '2', '.', '3', '4'].forEach(key => click('.key-btn[data-key="' + key + '"]'));
         document.getElementById('add-note-input').value = note;
         document.getElementById('add-date-input').value = '2026-05-30';
@@ -134,6 +195,11 @@ async function runSmokeTest(mainWindow) {
 
         const stats = await window.CoinFlowDB.getMonthlyStats(2026, 5);
         const savedTx = stats.transactions.find(tx => tx.note === note && tx.amount === 12.34);
+        const exportResults = {
+          csv: await window.CoinFlowExcel.exportToCSV(2026, 5),
+          excel: await window.CoinFlowExcel.exportToExcel(2026, 5),
+          html: await window.CoinFlowExportHTML.exportToHTML(2026, 5)
+        };
 
         click('.nav-item[data-target="transactions"]');
         click('.nav-item[data-target="statistics"]');
@@ -151,6 +217,9 @@ async function runSmokeTest(mainWindow) {
           activePages,
           chartReady: Boolean(window.Chart),
           idbReady: Boolean(window.idb),
+          xlsxReady: Boolean(window.XLSX),
+          datePickerVisible,
+          exportResults,
           appWidth: Math.round(appRect.width),
           appHeight: Math.round(appRect.height),
           navWidth: Math.round(navRect.width)
@@ -159,7 +228,7 @@ async function runSmokeTest(mainWindow) {
     `, true);
 
     try {
-      const image = await mainWindow.webContents.capturePage();
+      const image = await mainWindow.webContents.capturePage().catch(() => mainWindow.capturePage());
       await fs.promises.writeFile(screenshotPath, image.toPNG());
       result.screenshotPath = screenshotPath;
     } catch (screenshotError) {
@@ -182,6 +251,7 @@ async function runSmokeTest(mainWindow) {
 
 app.whenReady().then(async () => {
   await registerLocalProtocol();
+  registerIpcHandlers();
   const mainWindow = createMainWindow();
 
   if (process.env.COINFLOW_SMOKE_TEST === '1') {

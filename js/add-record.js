@@ -24,6 +24,11 @@
     if (!dateInput.value) {
       dateInput.value = window.CoinFlowUtils.getTodayDateString();
     }
+    if (window.CoinFlowDatePicker) {
+      window.CoinFlowDatePicker.attach(dateInput, {
+        trigger: document.getElementById('add-date-trigger')
+      });
+    }
 
     // 3. 数字键盘绑定
     document.querySelectorAll('.keyboard-grid .key-btn').forEach(btn => {
@@ -50,22 +55,8 @@
       const cat = window.CoinFlowUtils.CATEGORIES[key];
       const btn = document.createElement('button');
       btn.className = `cat-select-btn`;
-      btn.style.cssText = `
-        background: var(--glass-bg);
-        border: 1px solid var(--glass-border);
-        border-radius: 16px;
-        padding: 12px 6px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        color: var(--text-secondary);
-        font-size: 11px;
-        font-weight: 500;
-        transition: var(--transition-smooth);
-      `;
       btn.innerHTML = `
-        <span class="bg-${cat.class}" style="width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: var(--transition-smooth);">${cat.emoji}</span>
+        <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
         <span>${cat.name}</span>
       `;
       btn.dataset.category = key;

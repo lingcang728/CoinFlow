@@ -698,16 +698,15 @@
 </body>
 </html>`;
 
-      // 7. 触发下载
-      const blob = new Blob([htmlTemplate], { type: 'text/html;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `CoinFlow_${year}年${formattedMonth}月数据报告.html`;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return true;
+      // 7. 保存文件
+      const result = await window.CoinFlowRuntime.saveFile({
+        defaultPath: `CoinFlow_${year}年${formattedMonth}月数据报告.html`,
+        filters: [{ name: 'HTML 报告', extensions: ['html'] }],
+        data: htmlTemplate,
+        encoding: 'utf8',
+        mimeType: 'text/html;charset=utf-8;'
+      });
+      return !result.canceled;
     } catch (error) {
       console.error('HTML 报告导出失败:', error);
       throw error;

@@ -185,12 +185,14 @@
       labels.push(`${m}月`);
     }
 
-    // 批量拉取 IndexedDB 月度统计数据
-    for (const item of months) {
-      const stats = await window.CoinFlowDB.getMonthlyStats(item.year, item.month);
+    // 批量拉取 IndexedDB 月度统计数据，避免切页时串行等待造成卡顿
+    const monthlyStats = await Promise.all(
+      months.map(item => window.CoinFlowDB.getMonthlyStats(item.year, item.month))
+    );
+    monthlyStats.forEach(stats => {
       spentData.push(stats.totalSpent);
       budgetData.push(stats.totalBudget);
-    }
+    });
 
     window.CoinFlowCharts.createLineChart(lineCanvas, spentData, budgetData, labels);
   }

@@ -16,36 +16,40 @@
   let currentCategoryFilter = 'all'; // 默认显示全部分类
   let currentSortType = 'time-desc'; // time-desc, time-asc, amount-desc, amount-asc
   let editModalEl = null;
+  let hasBoundEvents = false;
 
   /**
    * 初始化明细页
    */
   function init() {
-    // 1. 动态生成筛选分类滑动标签
-    renderFilterCategories();
+    if (!hasBoundEvents) {
+      // 1. 动态生成筛选分类滑动标签
+      renderFilterCategories();
 
-    // 2. 绑定排序切换
-    btnToggleSort.onclick = toggleSort;
+      // 2. 绑定排序切换
+      btnToggleSort.onclick = toggleSort;
 
-    // 3. 绑定导入导出
-    btnImport.onclick = () => inputFile.click();
-    inputFile.onchange = handleImport;
-    
-    // 绑定导出下拉菜单
-    const dropdown = document.getElementById('export-dropdown');
-    btnExport.onclick = (e) => {
-      e.stopPropagation();
-      window.CoinFlowUtils.triggerHaptic('light');
-      dropdown.classList.toggle('active');
-    };
+      // 3. 绑定导入导出
+      btnImport.onclick = () => inputFile.click();
+      inputFile.onchange = handleImport;
+      
+      // 绑定导出下拉菜单
+      const dropdown = document.getElementById('export-dropdown');
+      btnExport.onclick = (e) => {
+        e.stopPropagation();
+        window.CoinFlowUtils.triggerHaptic('light');
+        dropdown.classList.toggle('active');
+      };
 
-    document.addEventListener('click', () => {
-      dropdown.classList.remove('active');
-    });
+      document.addEventListener('click', () => {
+        dropdown.classList.remove('active');
+      });
 
-    document.getElementById('export-excel-item').onclick = () => handleExport('excel');
-    document.getElementById('export-csv-item').onclick = () => handleExport('csv');
-    document.getElementById('export-html-item').onclick = () => handleExport('html');
+      document.getElementById('export-excel-item').onclick = () => handleExport('excel');
+      document.getElementById('export-csv-item').onclick = () => handleExport('csv');
+      document.getElementById('export-html-item').onclick = () => handleExport('html');
+      hasBoundEvents = true;
+    }
 
     render();
   }
@@ -149,18 +153,23 @@
     const month = window.CoinFlowState.currentMonth;
 
     try {
+      let exported = false;
       if (format === 'excel') {
         window.CoinFlowUtils.showToast('正在生成 Excel 文件...', 'info');
-        await window.CoinFlowExcel.exportToExcel(year, month);
+        exported = await window.CoinFlowExcel.exportToExcel(year, month);
       } else if (format === 'csv') {
         window.CoinFlowUtils.showToast('正在生成 CSV 文件...', 'info');
-        await window.CoinFlowExcel.exportToCSV(year, month);
+        exported = await window.CoinFlowExcel.exportToCSV(year, month);
       } else if (format === 'html') {
         window.CoinFlowUtils.showToast('正在生成 HTML 报告...', 'info');
-        await window.CoinFlowExportHTML.exportToHTML(year, month);
+        exported = await window.CoinFlowExportHTML.exportToHTML(year, month);
       }
-      window.CoinFlowUtils.triggerHaptic('success');
-      window.CoinFlowUtils.showToast('账单导出成功', 'success');
+      if (exported) {
+        window.CoinFlowUtils.triggerHaptic('success');
+        window.CoinFlowUtils.showToast('账单导出成功', 'success');
+      } else {
+        window.CoinFlowUtils.showToast('已取消导出', 'info');
+      }
     } catch (err) {
       console.error('导出失败:', err);
       window.CoinFlowUtils.showToast('导出失败，请重试', 'error');
@@ -233,33 +242,31 @@
           const daySpent = txs.reduce((sum, item) => sum + item.amount, 0);
 
           const groupCard = document.createElement('div');
-          groupCard.className = 'glass-card';
-          groupCard.style.padding = '15px';
-          groupCard.style.marginBottom = '0'; // 避免间距重叠
+          groupCard.className = 'surface-card transaction-day-card';
           
           let listHtml = '';
           txs.forEach(tx => {
             const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
             const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
             listHtml += `
-              <div class="tx-item-row" data-id="${tx.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="bg-${cat.class}" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px;">${cat.emoji}</span>
+              <div class="tx-item-row" data-id="${tx.id}">
+                <div class="tx-left">
+                  <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
                   <div>
-                    <div class="tx-note-text" style="font-size:13px; font-weight:500; color:#fff;">${label}</div>
+                    <div class="tx-note-text">${label}</div>
                   </div>
                 </div>
-                <div style="font-size:13px; font-weight:700; color:var(--primary-gold);">-¥${tx.amount.toFixed(2)}</div>
+                <div class="tx-amount">-¥${tx.amount.toFixed(2)}</div>
               </div>
             `;
           });
 
           groupCard.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:8px; margin-bottom:5px; font-size:12px; color:var(--text-secondary);">
-              <div style="font-weight:600; color:var(--text-main);">${window.CoinFlowUtils.formatFriendlyDate(dateStr)} <span style="font-size:10px; font-weight:normal; color:var(--text-muted); margin-left:5px;">(${dateStr})</span></div>
-              <div>日支出 <span style="color:#fff; font-weight:600;">¥${daySpent.toFixed(2)}</span></div>
+            <div class="transaction-day-header">
+              <div>${window.CoinFlowUtils.formatFriendlyDate(dateStr)} <span>(${dateStr})</span></div>
+              <div>日支出 <strong>¥${daySpent.toFixed(2)}</strong></div>
             </div>
-            <div style="display:flex; flex-direction:column;">
+            <div class="transaction-day-list">
               ${listHtml}
             </div>
           `;
@@ -269,28 +276,27 @@
       } else {
         // 金额排序：直接渲染一个大列表卡片，不按日期分组
         const groupCard = document.createElement('div');
-        groupCard.className = 'glass-card';
-        groupCard.style.padding = '15px';
+        groupCard.className = 'surface-card transaction-day-card';
         
         let listHtml = '';
         filteredTxs.forEach(tx => {
           const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
           const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
           listHtml += `
-            <div class="tx-item-row" data-id="${tx.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.03); cursor:pointer;">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <span class="bg-${cat.class}" style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px;">${cat.emoji}</span>
+            <div class="tx-item-row" data-id="${tx.id}">
+              <div class="tx-left">
+                <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
                 <div>
-                  <div class="tx-note-text" style="font-size:13px; font-weight:500; color:#fff;">${label}</div>
-                  <div style="font-size:9px; color:var(--text-muted); margin-top:2px;">${tx.date}</div>
+                  <div class="tx-note-text">${label}</div>
+                  <div class="tx-subtitle">${tx.date}</div>
                 </div>
               </div>
-              <div style="font-size:13px; font-weight:700; color:var(--primary-gold);">-¥${tx.amount.toFixed(2)}</div>
+              <div class="tx-amount">-¥${tx.amount.toFixed(2)}</div>
             </div>
           `;
         });
         
-        groupCard.innerHTML = `<div style="display:flex; flex-direction:column;">${listHtml}</div>`;
+        groupCard.innerHTML = `<div class="transaction-day-list">${listHtml}</div>`;
         listContainer.appendChild(groupCard);
       }
 
@@ -354,7 +360,13 @@
               </div>
               <div class="form-group">
                 <label>日期</label>
-                <input type="date" id="edit-date" class="form-input" value="${tx.date}" required>
+                <div class="date-picker-anchor">
+                  <input type="hidden" id="edit-date" value="${tx.date}" required>
+                  <button type="button" id="edit-date-trigger" class="date-field date-field-full">
+                    <span data-date-label>${tx.date}</span>
+                    <span class="date-field-icon" aria-hidden="true">▣</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -381,6 +393,11 @@
       document.getElementById('btn-close-edit-modal').onclick = closeEditModal;
       document.getElementById('btn-delete-tx').onclick = () => handleDelete(txId);
       document.getElementById('btn-update-tx').onclick = () => handleUpdate(txId);
+      if (window.CoinFlowDatePicker) {
+        window.CoinFlowDatePicker.attach(document.getElementById('edit-date'), {
+          trigger: document.getElementById('edit-date-trigger')
+        });
+      }
 
     } catch (e) {
       console.error(e);

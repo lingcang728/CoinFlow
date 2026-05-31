@@ -5,20 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' coinflow:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: coinflow:; connect-src 'self' coinflow:; worker-src 'self' coinflow:; manifest-src 'self'; object-src 'none'; base-uri 'self';">
   <title>CoinFlow 零花钱管家</title>
-  
   <link rel="icon" type="image/png" href="favicon.png">
   <meta name="theme-color" content="#0a0a0f">
-  
-  <!-- CSS 样式 -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-  <!-- App 容器 (适配移动端) -->
-  <div id="app-container">
-    
-    <!-- 全局 SVG 渐变定义 (用于底部导航栏 SVG 渐变着色) -->
-    <svg width="0" height="0" style="position: absolute;">
+  <div id="app-container" class="app-shell">
+    <svg class="svg-defs" width="0" height="0" aria-hidden="true">
       <defs>
         <linearGradient id="orange-gold-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="#FF8C00" />
@@ -27,186 +20,154 @@
       </defs>
     </svg>
 
-    <!-- 页面包装器 -->
     <div class="page-wrapper">
-      
-      <!-- ================= 1. 仪表盘首页 ================= -->
       <section id="page-dashboard" class="page active">
-        <!-- 顶部头部 -->
-        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="favicon.png" style="width: 28px; height: 28px; filter: drop-shadow(0 0 5px var(--primary-glow));" alt="logo">
-            <span class="gradient-text" style="font-size: 20px; font-weight: 800; letter-spacing: 0.5px;">CoinFlow</span>
+        <header class="app-topbar">
+          <div class="brand-lockup">
+            <img src="favicon.png" class="brand-logo" alt="CoinFlow logo">
+            <span class="brand-name">CoinFlow</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <button id="btn-budget-settings" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-main); font-size: 16px;">⚙️</button>
+          <div class="month-toolbar">
+            <button id="prev-month" class="icon-button month-nav" aria-label="上个月">‹</button>
+            <div id="current-month-display" class="month-display">2026年05月</div>
+            <button id="next-month" class="icon-button month-nav" aria-label="下个月">›</button>
           </div>
+          <button id="btn-budget-settings" class="icon-button settings-button" aria-label="预算设置">⚙</button>
         </header>
 
-        <!-- 月份切换器 -->
-        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; margin-bottom: 15px;">
-          <button id="prev-month" style="background:none; color:var(--text-secondary); font-size:16px;">◀</button>
-          <span id="current-month-display" style="font-size: 16px; font-weight: 600; letter-spacing: 1px;">2026年05月</span>
-          <button id="next-month" style="background:none; color:var(--text-secondary); font-size:16px;">▶</button>
-        </div>
-
-        <!-- 本月总览卡片 -->
-        <div class="glass-card" style="position: relative; overflow: visible; background: linear-gradient(135deg, rgba(255, 140, 0, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%); border-color: rgba(255, 140, 0, 0.2);" id="dashboard-summary-card">
-          <div style="color: var(--text-secondary); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">本月已消费</div>
-          <div id="total-spent-display" style="font-size: 38px; font-weight: 800; margin: 8px 0; color: #fff;" class="gradient-text">¥0.00</div>
-          
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; font-size: 12px; color: var(--text-secondary);">
-            <div>剩余可用: <span id="remaining-budget-display" style="color: #fff; font-weight: 600;">¥0.00</span></div>
-            <div>总预算: <span id="total-budget-display">¥0.00</span></div>
-          </div>
-          
-          <div class="progress-bar-container">
-            <div id="total-budget-progress" class="progress-bar success"></div>
-          </div>
-        </div>
-
-        <!-- 消费环形图卡片 -->
-        <div class="glass-card" style="display: flex; flex-direction: column; align-items: center; padding: 20px 15px;">
-          <div style="align-self: flex-start; width: 100%; margin-bottom: 15px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-            <span>📊</span> <span>消费分类结构</span>
-          </div>
-          <div style="position: relative; width: 220px; height: 220px;">
-            <canvas id="chart-doughnut-dashboard"></canvas>
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-              <div id="chart-center-percent" style="font-size: 20px; font-weight: 700; color: #fff;">0%</div>
-              <div style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">已用预算</div>
+        <div class="dashboard-grid">
+          <article id="dashboard-summary-card" class="surface-card summary-card">
+            <div class="card-eyebrow">本月已消费</div>
+            <div id="total-spent-display" class="summary-amount">¥0.00</div>
+            <div class="summary-meta">
+              <span>剩余预算 <strong id="remaining-budget-display">¥0.00</strong></span>
+              <span>月度预算 <strong id="total-budget-display">¥0.00</strong></span>
             </div>
-          </div>
-          <!-- 自定义滚动图例 -->
-          <div id="chart-legend-container" style="display: flex; gap: 10px; overflow-x: auto; width: 100%; padding-top: 15px; margin-top: 5px; scrollbar-width: none;">
-            <!-- 动态生成 -->
-          </div>
-        </div>
-
-        <!-- 分类进度条组 -->
-        <div class="glass-card" style="margin-bottom: 10px;">
-          <div style="margin-bottom: 15px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-            <span>📈</span> <span>分类预算进度</span>
-          </div>
-          <div id="dashboard-category-progress-list" style="display: flex; flex-direction: column; gap: 14px;">
-            <!-- 动态生成 -->
-          </div>
-        </div>
-
-        <!-- 最近账单明细 -->
-        <div class="glass-card" style="margin-bottom: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <div style="font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-              <span>📝</span> <span>最近记录</span>
+            <div class="progress-bar-container">
+              <div id="total-budget-progress" class="progress-bar success"></div>
             </div>
-            <button id="btn-view-all-transactions" style="background: none; color: var(--primary-gold); font-size: 12px; font-weight: 500;">查看全部 &gt;</button>
-          </div>
-          <div id="dashboard-recent-list" style="display: flex; flex-direction: column; gap: 12px;">
-            <!-- 动态生成 -->
-          </div>
+            <div class="progress-scale">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </article>
+
+          <article class="surface-card chart-card doughnut-card">
+            <div class="card-header">
+              <h2>消费分类结构</h2>
+            </div>
+            <div class="doughnut-layout">
+              <div class="doughnut-stage">
+                <canvas id="chart-doughnut-dashboard"></canvas>
+                <div class="chart-center-label">
+                  <div id="chart-center-percent">0%</div>
+                  <span>已用预算</span>
+                </div>
+              </div>
+              <div id="chart-legend-container" class="chart-legend-list"></div>
+            </div>
+          </article>
+
+          <article class="surface-card budget-card">
+            <div class="card-header">
+              <h2>分类预算进度</h2>
+            </div>
+            <div id="dashboard-category-progress-list" class="budget-progress-list"></div>
+          </article>
+
+          <article class="surface-card recent-card">
+            <div class="card-header">
+              <h2>最近记录</h2>
+              <button id="btn-view-all-transactions" class="text-button">查看更多</button>
+            </div>
+            <div id="dashboard-recent-list" class="compact-list"></div>
+          </article>
         </div>
       </section>
 
-      <!-- ================= 2. 账单明细页面 ================= -->
       <section id="page-transactions" class="page">
-        <header style="margin-bottom: 15px;">
-          <h1 style="font-size: 20px; font-weight: 700;">账单明细</h1>
-        </header>
-
-        <!-- 快捷操作区 (导入导出) -->
-        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; margin-bottom: 15px; overflow: visible; position: relative; z-index: 10;">
-          <div style="font-size: 13px; color: var(--text-secondary);">数据管理</div>
-          <div style="display: flex; gap: 8px; position: relative; overflow: visible;">
-            <button id="btn-import-excel" style="background: rgba(255,255,255,0.06); border:1px solid var(--glass-border); padding:6px 12px; border-radius:8px; font-size:12px; color:var(--text-main); display:flex; align-items:center; gap:4px;">
-              📥 导入
-            </button>
-            <input type="file" id="input-file-excel" accept=".xlsx,.xls,.csv" style="display: none;">
-            
-            <div style="position: relative; overflow: visible;">
-              <button id="btn-export-excel" style="background: rgba(255,140,0,0.1); border:1px solid rgba(255,140,0,0.3); padding:6px 12px; border-radius:8px; font-size:12px; color:var(--primary-gold); display:flex; align-items:center; gap:4px;">
-                📤 导出 ▾
-              </button>
-              <!-- 导出下拉菜单 -->
-              <div id="export-dropdown" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 38px; background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px); border: 1px solid var(--glass-border-focus); border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); z-index: 200; width: 140px; padding: 6px 0;">
+        <header class="page-header">
+          <div>
+            <h1>账单明细</h1>
+            <p>查看、筛选、编辑与导出本月账单</p>
+          </div>
+          <div class="data-actions">
+            <button id="btn-import-excel" class="btn-secondary">▣ 导入</button>
+            <input type="file" id="input-file-excel" class="hidden-file-input" accept=".xlsx,.xls,.csv">
+            <div class="export-wrap">
+              <button id="btn-export-excel" class="btn-accent">▣ 导出 ▾</button>
+              <div id="export-dropdown" class="dropdown-menu export-menu">
                 <button class="dropdown-item" id="export-excel-item">📊 导出 Excel</button>
                 <button class="dropdown-item" id="export-csv-item">📄 导出 CSV</button>
                 <button class="dropdown-item" id="export-html-item">🌐 HTML 报告</button>
               </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        <!-- 筛选与排序 -->
-        <div class="glass-card" style="padding: 15px; margin-bottom: 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-size: 13px; color: var(--text-secondary);">分类筛选:</span>
-            <!-- 排序开关 -->
-            <button id="btn-toggle-sort" style="background:none; color:var(--primary-gold); font-size:12px; display:flex; align-items:center; gap:3px;">
-              <span>⇅</span> <span id="sort-text-display">时间降序</span>
+        <div class="surface-card filter-card">
+          <div class="filter-header">
+            <span>分类筛选</span>
+            <button id="btn-toggle-sort" class="text-button">
+              <span>⇅</span><span id="sort-text-display">时间降序</span>
             </button>
           </div>
-          <!-- 分类滑动轴 -->
-          <div id="filter-categories-scroll" style="display: flex; gap: 8px; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none;">
-            <button class="shortcut-tag active" data-category="all" style="border-radius: 12px; white-space: nowrap;">全部</button>
-            <!-- 动态生成其他分类标签 -->
+          <div id="filter-categories-scroll" class="chip-scroll">
+            <button class="shortcut-tag active" data-category="all">全部</button>
           </div>
         </div>
 
-        <!-- 账单明细列表 -->
-        <div id="transactions-list-container" style="flex: 1; display: flex; flex-direction: column; gap: 15px; margin-bottom: 70px;">
-          <!-- 动态生成，按天分组 -->
-        </div>
+        <div id="transactions-list-container" class="transactions-list"></div>
 
-        <!-- 悬浮月度统计条 -->
-        <div id="transactions-month-summary" style="position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); width: calc(100% - 40px); max-width: 440px; background: rgba(20,20,30,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border:1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 90;">
-          <div style="font-size: 12px; color: var(--text-secondary);">本月合计支出: <span id="tx-month-spent" style="color: #fff; font-weight: 700; font-size: 15px; margin-left:4px;">¥0.00</span></div>
-          <div style="font-size: 11px; color: var(--text-secondary);"><span id="tx-month-count" style="color:var(--primary-gold);">0</span> 笔记录 | 日均 <span id="tx-month-avg" style="color: #fff; font-weight: 600;">¥0.00</span></div>
+        <div id="transactions-month-summary" class="month-summary-bar">
+          <div>本月合计支出 <strong id="tx-month-spent">¥0.00</strong></div>
+          <div><span id="tx-month-count">0</span> 笔记录 | 日均 <strong id="tx-month-avg">¥0.00</strong></div>
         </div>
       </section>
 
-      <!-- ================= 3. 记账录入页面 ================= -->
       <section id="page-add" class="page">
-        <header style="margin-bottom: 15px;">
-          <h1 style="font-size: 20px; font-weight: 700;">添加记录</h1>
+        <header class="page-header">
+          <div>
+            <h1>添加记录</h1>
+            <p>快速记录今日消费</p>
+          </div>
         </header>
 
-        <!-- 记账控制面板 -->
-        <div class="glass-card" style="padding: 15px 20px; margin-bottom: 15px;" id="add-record-card">
-          <!-- 分类选择器网格 -->
-          <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-secondary);">选择消费类别:</div>
-          <div class="add-category-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-            <!-- 动态生成 8 个分类的圆形选择按钮 -->
-          </div>
+        <article id="add-record-card" class="surface-card add-record-card">
+          <section class="add-panel category-panel">
+            <div class="section-label">选择消费类别</div>
+            <div class="add-category-grid"></div>
+          </section>
 
-          <!-- 金额输入框 (大屏) -->
-          <div style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; align-items: flex-end; border: 1px solid var(--glass-border); margin-bottom: 15px;">
-            <div style="font-size: 11px; color: var(--text-secondary); align-self: flex-start; display: flex; justify-content: space-between; width: 100%;">
-              <span>输入金额 (元)</span>
-              <span id="selected-category-budget-status" style="color: var(--text-secondary);"></span>
+          <section class="add-panel amount-panel">
+            <div class="amount-meta">
+              <span>消费金额 (元)</span>
+              <span id="selected-category-budget-status"></span>
             </div>
-            <div style="display: flex; align-items: baseline; margin-top: 8px;">
-              <span style="font-size: 20px; font-weight: 600; color: var(--primary-gold); margin-right: 4px;">¥</span>
-              <span id="keyboard-input-amount" style="font-size: 34px; font-weight: 800; color: #fff; font-family: 'Inter', monospace; word-break: break-all;">0</span>
+            <div class="amount-display">
+              <span>¥</span>
+              <strong id="keyboard-input-amount">0</strong>
             </div>
-          </div>
+          </section>
 
-          <!-- 备注输入栏 -->
-          <div class="form-group" style="margin-bottom: 12px;">
+          <section class="add-panel note-panel">
             <input type="text" id="add-note-input" class="form-input" placeholder="添加备注 (例如: 蜜雪冰城, 拼多多)..." maxlength="30">
-            <!-- 快捷备注推荐 -->
-            <div id="shortcut-notes-container" class="tag-container">
-              <!-- 动态从历史中推荐常用备注 -->
+            <div id="shortcut-notes-container" class="tag-container"></div>
+          </section>
+
+          <section class="add-panel date-panel">
+            <div class="date-control-row">
+              <span class="field-label">消费日期</span>
+              <div class="date-picker-anchor">
+                <input type="hidden" id="add-date-input">
+                <button type="button" id="add-date-trigger" class="date-field">
+                  <span data-date-label>选择日期</span>
+                  <span class="date-field-icon" aria-hidden="true">▣</span>
+                </button>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <!-- 日期选择 -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 13px;">
-            <span style="color: var(--text-secondary);">消费日期:</span>
-            <input type="date" id="add-date-input" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color:#fff; padding:6px 12px; font-family:inherit; outline:none; text-align:right;">
-          </div>
-
-          <!-- 触屏数字键盘 -->
-          <div class="keyboard-grid">
+          <section class="keyboard-grid">
             <button class="key-btn" data-key="1">1</button>
             <button class="key-btn" data-key="2">2</button>
             <button class="key-btn" data-key="3">3</button>
@@ -218,80 +179,65 @@
             <button class="key-btn" data-key="9">9</button>
             <button class="key-btn" data-key=".">.</button>
             <button class="key-btn" data-key="0">0</button>
-            <button class="key-btn" data-key="backspace" style="font-size: 16px;">⌫</button>
-          </div>
+            <button class="key-btn" data-key="backspace">⌫</button>
+          </section>
 
-          <!-- 保存按钮 -->
-          <button id="btn-save-record" class="btn-primary" style="width: 100%; margin-top: 15px; height: 50px;">
-            确认保存
-          </button>
-        </div>
+          <button id="btn-save-record" class="btn-primary save-record-button">确认保存</button>
+        </article>
       </section>
 
-      <!-- ================= 4. 统计分析页面 ================= -->
       <section id="page-statistics" class="page">
-        <header style="margin-bottom: 20px;">
-          <h1 style="font-size: 20px; font-weight: 700;">统计分析</h1>
+        <header class="page-header">
+          <div>
+            <h1>统计分析</h1>
+            <p>趋势、热力与分类排行</p>
+          </div>
         </header>
 
-        <!-- 每日消费柱状图 -->
-        <div class="glass-card" style="padding: 20px 15px;">
-          <div style="font-size: 14px; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;">
-            <span>📊</span> <span>每日支出趋势</span>
+        <article class="surface-card chart-card stat-daily-card">
+          <div class="card-header">
+            <h2>每日支出趋势</h2>
           </div>
-          <div style="height: 180px; position: relative;">
+          <div class="chart-stage chart-stage-wide">
             <canvas id="chart-bar-daily"></canvas>
           </div>
-        </div>
+        </article>
 
-        <!-- 消费日历热力图 -->
-        <div class="glass-card" style="padding: 20px 15px;">
-          <div style="font-size: 14px; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;">
-            <span>📅</span> <span>消费日历热力</span>
+        <article class="surface-card heatmap-card">
+          <div class="card-header">
+            <h2>消费日历热力</h2>
           </div>
-          <!-- 类似于 GitHub 贡献图的网格 -->
-          <div id="calendar-heatmap-container" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; width: 100%; margin-bottom: 8px;">
-            <!-- 动态生成 7 列日历格子 -->
-          </div>
-          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 10px; color: var(--text-secondary); margin-top: 5px;">
+          <div id="calendar-heatmap-container" class="heatmap-grid"></div>
+          <div class="heatmap-legend">
             <span>少</span>
-            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.05); border-radius:3px;"></span>
-            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(255, 140, 0, 0.15), rgba(255, 215, 0, 0.08)); border:1px solid rgba(255, 140, 0, 0.25); border-radius:3px; box-shadow:0 1px 3px rgba(255,140,0,0.08);"></span>
-            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(255, 140, 0, 0.45), rgba(255, 215, 0, 0.22)); border:1px solid rgba(255, 140, 0, 0.6); border-radius:3px; box-shadow:0 2px 6px rgba(255,140,0,0.2);"></span>
-            <span style="display:inline-block; width:10px; height:10px; background:linear-gradient(135deg, rgba(244, 67, 54, 0.75), rgba(255, 140, 0, 0.4)); border:1px solid rgba(244, 67, 54, 0.9); border-radius:3px; box-shadow:0 3px 8px rgba(244,67,54,0.35);"></span>
+            <span class="heatmap-swatch heatmap-swatch-0"></span>
+            <span class="heatmap-swatch heatmap-swatch-1"></span>
+            <span class="heatmap-swatch heatmap-swatch-2"></span>
+            <span class="heatmap-swatch heatmap-swatch-3"></span>
             <span>多</span>
           </div>
-          <!-- 点击某天提示区域 -->
-          <div id="heatmap-day-detail" style="margin-top:10px; font-size:12px; color:var(--text-secondary); text-align:center; height:18px;">
-            点击上方日期查看当天明细
-          </div>
-        </div>
+          <div id="heatmap-day-detail" class="heatmap-detail">点击上方日期查看当天明细</div>
+        </article>
 
-        <!-- 过去6个月趋势折线图 -->
-        <div class="glass-card" style="padding: 20px 15px;">
-          <div style="font-size: 14px; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;">
-            <span>📈</span> <span>月度收支走势 (半年)</span>
+        <article class="surface-card chart-card trend-card">
+          <div class="card-header">
+            <h2>月度收支走势 (半年)</h2>
           </div>
-          <div style="height: 180px; position: relative;">
+          <div class="chart-stage chart-stage-wide">
             <canvas id="chart-line-trend"></canvas>
           </div>
-        </div>
+        </article>
 
-        <!-- 各分类排行榜 -->
-        <div class="glass-card" style="margin-bottom: 70px;">
-          <div style="font-size: 14px; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;">
-            <span>🏆</span> <span>消费分类排行</span>
+        <article class="surface-card rank-card">
+          <div class="card-header">
+            <h2>消费分类排行</h2>
           </div>
-          <div id="statistics-rank-list" style="display: flex; flex-direction: column; gap: 14px;">
-            <!-- 动态生成排行榜 -->
-          </div>
-        </div>
+          <div id="statistics-rank-list" class="rank-list"></div>
+        </article>
       </section>
-
     </div>
 
-    <!-- ================= 底部固定导航栏 ================= -->
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="主导航">
       <div class="nav-item active" data-target="dashboard">
         <svg viewBox="0 0 24 24">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -311,7 +257,7 @@
         <span>明细</span>
       </div>
       <div class="nav-item" data-target="add">
-        <svg viewBox="0 0 24 24" style="stroke-width: 2.5;">
+        <svg viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="16"></line>
           <line x1="8" y1="12" x2="16" y2="12"></line>
@@ -327,19 +273,17 @@
         <span>统计</span>
       </div>
     </nav>
-
   </div>
 
-  <!-- ================= 全局预算设置弹窗 (Bottom Sheet) ================= -->
   <div id="modal-budget-settings" class="modal-overlay">
     <div class="bottom-sheet">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="font-size: 18px; font-weight: 700; color: #fff;">预算与智能规划</h2>
-        <button id="btn-close-budget-modal" style="background: none; font-size: 20px; color: var(--text-secondary);">×</button>
+      <div class="modal-header">
+        <h2>预算与智能规划</h2>
+        <button id="btn-close-budget-modal" class="icon-button" aria-label="关闭">×</button>
       </div>
 
       <form id="form-budget-settings">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+        <div class="budget-form-grid">
           <div class="form-group">
             <label for="input-monthly-income">每月收入 (元)</label>
             <input type="number" id="input-monthly-income" class="form-input" placeholder="输入每月生活费" required min="0">
@@ -350,59 +294,48 @@
           </div>
         </div>
 
-        <div style="border-top: 1px solid var(--glass-border); padding-top: 15px; margin-bottom: 15px;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--primary-gold); margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="budget-section">
+          <div class="budget-section-title">
             <span>各分类预算额 (元)</span>
-            <button id="btn-auto-allocate-budget" type="button" style="background:none; color:var(--text-secondary); font-size:11px; text-decoration:underline;">智能均分剩余</button>
+            <button id="btn-auto-allocate-budget" type="button" class="text-button">智能均分剩余</button>
           </div>
-          <div id="category-budgets-inputs-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <!-- 动态生成 8 个分类预算输入框 -->
-          </div>
+          <div id="category-budgets-inputs-grid" class="budget-input-grid"></div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-secondary); margin-bottom: 15px; background: rgba(0,0,0,0.15); padding:8px 12px; border-radius:8px;">
-          <span>可支配额 (收入-储蓄): <strong id="val-disposable-display" style="color:#fff;">¥2000.00</strong></span>
-          <span>分类预算总和: <strong id="val-cat-budget-total-display" style="color:#fff;">¥2000.00</strong></span>
+        <div class="budget-calculation-bar">
+          <span>可支配额 <strong id="val-disposable-display">¥2000.00</strong></span>
+          <span>分类预算总和 <strong id="val-cat-budget-total-display">¥2000.00</strong></span>
         </div>
 
-        <button id="btn-save-budget" class="btn-primary" style="width: 100%; height: 45px;">
-          保存配置
-        </button>
+        <button id="btn-save-budget" class="btn-primary" type="submit">保存配置</button>
       </form>
     </div>
   </div>
 
-  <!-- ================= 保存成功微动画 ================= -->
   <div id="save-success-toast" class="save-success-animation">
     <div class="checkmark-circle">
       <svg class="checkmark" viewBox="0 0 52 52">
         <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"></path>
       </svg>
     </div>
-    <div style="color: #fff; font-size: 15px; font-weight: 600;">记账成功!</div>
+    <div>记账成功!</div>
   </div>
 
-  <!-- ================= 本地运行时库 (桌面离线可用) ================= -->
   <script src="vendor/idb/idb.umd.js"></script>
   <script src="vendor/chartjs/chart.umd.min.js"></script>
-  <script src="vendor/xlsx/xlsx.full.min.js"></script>
 
-  <!-- ================= 本地逻辑脚本 ================= -->
+  <script src="js/runtime.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/date-picker.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/excel.js"></script>
   <script src="js/export-html.js"></script>
-  
-  <!-- 业务页面脚本 -->
   <script src="js/dashboard.js"></script>
   <script src="js/add-record.js"></script>
   <script src="js/transactions.js"></script>
   <script src="js/statistics.js"></script>
   <script src="js/budget.js"></script>
-  
-  <!-- 主入口脚本 -->
   <script src="js/app.js"></script>
-
 </body>
 </html>

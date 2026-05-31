@@ -98,8 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
           currentPageId = targetPageId;
           triggerPageInit(targetPageId);
           requestAnimationFrame(() => {
-            window.dispatchEvent(new Event('resize'));
-            window.setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+            if (window.CoinFlowCharts && typeof window.CoinFlowCharts.resizeAll === 'function') {
+              window.CoinFlowCharts.resizeAll();
+            }
           });
         } catch (initErr) {
           console.error('[Router] Error inside page init:', initErr);
@@ -185,6 +186,11 @@ document.addEventListener('DOMContentLoaded', () => {
       window.CoinFlowBudget.init();
     }
     triggerPageInit('dashboard');
+    requestAnimationFrame(() => {
+      if (window.CoinFlowCharts && typeof window.CoinFlowCharts.resizeAll === 'function') {
+        window.CoinFlowCharts.resizeAll();
+      }
+    });
   }, 100);
 
 });

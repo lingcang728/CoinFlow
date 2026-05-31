@@ -14,6 +14,7 @@
   const disposableDisplay = document.getElementById('val-disposable-display');
   const catTotalDisplay = document.getElementById('val-cat-budget-total-display');
   let isSavingBudget = false;
+  let hasInitialized = false;
 
   // 建议分配占比默认配置
   const SUGGESTED_RATIOS = {
@@ -31,6 +32,7 @@
    * 初始化弹窗
    */
   function init() {
+    if (hasInitialized) return;
     // 1. 动态在表单中渲染 8 个分类的预算输入框
     inputsGrid.innerHTML = '';
     Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
@@ -58,6 +60,7 @@
 
     // 提交保存
     form.addEventListener('submit', saveBudget);
+    hasInitialized = true;
   }
 
   /**

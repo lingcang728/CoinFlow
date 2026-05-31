@@ -87,6 +87,7 @@ function importFromExcel(file, defaultYear = 2026) {
 
     reader.onload = async (e) => {
       try {
+        const XLSX = await window.CoinFlowRuntime.ensureXlsx();
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         
@@ -315,6 +316,30 @@ function importFromCSV(file) {
   });
 }
 
+function autoFitColumns(sheet) {
+  if (!sheet || !sheet['!ref'] || !window.XLSX) return;
+
+  const range = window.XLSX.utils.decode_range(sheet['!ref']);
+  const widths = [];
+
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    let maxChars = 8;
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const cellRef = window.XLSX.utils.encode_cell({ r, c });
+      const cell = sheet[cellRef];
+      if (!cell || cell.v === undefined || cell.v === null) continue;
+
+      const value = String(cell.w || cell.v);
+      const wideChars = (value.match(/[^\x00-\xff]/g) || []).length;
+      const width = value.length + wideChars;
+      maxChars = Math.max(maxChars, width);
+    }
+    widths[c] = { wch: Math.min(Math.max(maxChars + 2, 10), 36) };
+  }
+
+  sheet['!cols'] = widths;
+}
+
 /**
  * 导出 CSV 账单
  */
@@ -337,15 +362,14 @@ async function exportToCSV(year, month) {
       csvContent += `${idx + 1},${tx.date},${catInfo.name},${tx.amount.toFixed(2)},${note}\n`;
     });
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${title}.csv`;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return true;
+    const result = await window.CoinFlowRuntime.saveFile({
+      defaultPath: `${title}.csv`,
+      filters: [{ name: 'CSV 文件', extensions: ['csv'] }],
+      data: csvContent,
+      encoding: 'utf8',
+      mimeType: 'text/csv;charset=utf-8;'
+    });
+    return !result.canceled;
   } catch (error) {
     console.error('导出 CSV 失败:', error);
     throw error;
@@ -357,6 +381,7 @@ async function exportToCSV(year, month) {
  */
 async function exportToExcel(year, month) {
   try {
+    const XLSX = await window.CoinFlowRuntime.ensureXlsx();
     const stats = await window.CoinFlowDB.getMonthlyStats(year, month);
     const budgetConfig = await window.CoinFlowDB.getBudgetConfig();
     const transactions = stats.transactions;
@@ -666,8 +691,14 @@ async function exportToExcel(year, month) {
     XLSX.utils.book_append_sheet(wb, wsDetail, '逐日明细');
 
     // 4. 保存文件
-    XLSX.writeFile(wb, `${title}.xlsx`);
-    return true;
+    const workbookData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const result = await window.CoinFlowRuntime.saveFile({
+      defaultPath: `${title}.xlsx`,
+      filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }],
+      data: workbookData,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    return !result.canceled;
   } catch (error) {
     console.error('导出 Excel 失败:', error);
     throw error;

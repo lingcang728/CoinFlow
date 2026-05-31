@@ -19,19 +19,55 @@ if (window.Chart) {
   window.Chart.defaults.plugins.tooltip.padding = 10;
 }
 
+const chartRegistry = new WeakMap();
+
+function getChart(canvas) {
+  if (!canvas || !window.Chart) return null;
+  return window.Chart.getChart(canvas) || chartRegistry.get(canvas) || null;
+}
+
 /**
  * 销毁已有的 Chart 实例，避免 Canvas 重复渲染报错
  */
-function destroyChart(ctx) {
-  if (!ctx || !window.Chart) return;
+function destroyChart(canvas) {
+  if (!canvas || !window.Chart) return;
   try {
-    const chartInstance = window.Chart.getChart(ctx);
+    const chartInstance = getChart(canvas);
     if (chartInstance) {
       chartInstance.destroy();
+      chartRegistry.delete(canvas);
     }
   } catch (e) {
     console.warn('[Chart.js] Failed to safely check/destroy existing chart instance:', e);
   }
+}
+
+function createOrUpdateChart(canvas, config, updateMode = 'none') {
+  const existing = getChart(canvas);
+
+  if (existing && existing.config.type === config.type) {
+    existing.data.labels = config.data.labels;
+    existing.data.datasets = config.data.datasets;
+    existing.options = config.options;
+    existing.config.plugins = config.plugins || [];
+    existing.update(updateMode);
+    return existing;
+  }
+
+  destroyChart(canvas);
+  const chart = new window.Chart(canvas, config);
+  chartRegistry.set(canvas, chart);
+  return chart;
+}
+
+function resizeAll() {
+  document.querySelectorAll('canvas').forEach((canvas) => {
+    const chart = getChart(canvas);
+    if (chart) {
+      chart.resize();
+      chart.update('none');
+    }
+  });
 }
 
 /**
@@ -45,15 +81,13 @@ function createDoughnutChart(canvas, data, labels, colors) {
   if (!window.Chart) {
     throw new Error('Chart.js is not loaded');
   }
-  destroyChart(canvas);
-  
   // 如果全是 0，提供一个空灰环
   const total = data.reduce((sum, val) => sum + val, 0);
   const chartData = total === 0 ? [1] : data;
   const chartColors = total === 0 ? ['rgba(255, 255, 255, 0.1)'] : colors;
   const chartLabels = total === 0 ? ['无数据'] : labels;
 
-  return new window.Chart(canvas, {
+  return createOrUpdateChart(canvas, {
     type: 'doughnut',
     data: {
       labels: chartLabels,
@@ -85,7 +119,7 @@ function createDoughnutChart(canvas, data, labels, colors) {
       animation: {
         animateRotate: true,
         animateScale: true,
-        duration: 1000,
+        duration: getChart(canvas) ? 0 : 700,
         easing: 'easeOutCubic'
       }
     }
@@ -103,8 +137,6 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
   if (!window.Chart) {
     throw new Error('Chart.js is not loaded');
   }
-  destroyChart(canvas);
-
   // 橙金渐变填充
   const ctx = canvas.getContext('2d');
   const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || canvas.height || 200);
@@ -149,7 +181,7 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
     });
   }
 
-  return new window.Chart(canvas, {
+  return createOrUpdateChart(canvas, {
     type: 'bar',
     data: {
       labels: labels,
@@ -172,7 +204,7 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
         legend: { display: false }
       },
       animation: {
-        duration: 800,
+        duration: getChart(canvas) ? 0 : 650,
         easing: 'easeOutQuart'
       }
     }
@@ -190,8 +222,6 @@ function createLineChart(canvas, spentData, budgetData, labels) {
   if (!window.Chart) {
     throw new Error('Chart.js is not loaded');
   }
-  destroyChart(canvas);
-
   const ctx = canvas.getContext('2d');
   
   // 消费折线下方的渐变阴影
@@ -199,7 +229,7 @@ function createLineChart(canvas, spentData, budgetData, labels) {
   spentGradient.addColorStop(0, 'rgba(255, 140, 0, 0.25)');
   spentGradient.addColorStop(1, 'rgba(255, 140, 0, 0.0)');
 
-  return new window.Chart(canvas, {
+  return createOrUpdateChart(canvas, {
     type: 'line',
     data: {
       labels: labels,
@@ -251,7 +281,7 @@ function createLineChart(canvas, spentData, budgetData, labels) {
         }
       },
       animation: {
-        duration: 1000,
+        duration: getChart(canvas) ? 0 : 650,
         easing: 'easeInOutCubic'
       }
     }
@@ -262,5 +292,7 @@ function createLineChart(canvas, spentData, budgetData, labels) {
 window.CoinFlowCharts = {
   createDoughnutChart,
   createBarChart,
-  createLineChart
+  createLineChart,
+  resizeAll,
+  destroyChart
 };
