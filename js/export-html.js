@@ -181,6 +181,42 @@
       padding: 0;
     }
 
+    html,
+    body {
+      scrollbar-color: rgba(255, 255, 255, 0.18) rgba(10, 10, 15, 0.92);
+      scrollbar-width: thin;
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(10, 10, 15, 0.92);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.20);
+      border: 2px solid rgba(10, 10, 15, 0.92);
+      border-radius: 999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.30);
+    }
+
+    ::-webkit-scrollbar-button {
+      width: 0;
+      height: 0;
+      display: none;
+    }
+
+    ::-webkit-scrollbar-corner {
+      background: rgba(10, 10, 15, 0.92);
+    }
+
     body {
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -242,6 +278,7 @@
       padding: 20px;
       margin-bottom: 20px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
     }
 
     /* 左右双栏布局 */
@@ -512,6 +549,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
     }
 
     .tx-emoji {
@@ -527,6 +565,9 @@
     .tx-note {
       font-size: 13px;
       color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .tx-amount {

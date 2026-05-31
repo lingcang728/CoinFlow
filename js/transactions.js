@@ -45,21 +45,36 @@
       
       // 绑定导出下拉菜单
       const dropdown = document.getElementById('export-dropdown');
+      const exportWrap = dropdown ? dropdown.closest('.export-wrap') : null;
+      const setExportDropdownOpen = (open) => {
+        if (!dropdown || !btnExport) return;
+        dropdown.classList.toggle('active', open);
+        btnExport.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (exportWrap) {
+          exportWrap.classList.toggle('open', open);
+        }
+      };
+
       if (btnExport && dropdown) {
+        btnExport.setAttribute('aria-haspopup', 'menu');
+        btnExport.setAttribute('aria-expanded', 'false');
         btnExport.onclick = (e) => {
           e.stopPropagation();
           window.CoinFlowUtils.triggerHaptic('light');
-          dropdown.classList.toggle('active');
+          setExportDropdownOpen(!dropdown.classList.contains('active'));
         };
+        dropdown.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
       }
 
       document.addEventListener('click', () => {
-        if (dropdown) dropdown.classList.remove('active');
+        setExportDropdownOpen(false);
       });
 
-      document.getElementById('export-excel-item').onclick = () => handleExport('excel');
-      document.getElementById('export-csv-item').onclick = () => handleExport('csv');
-      document.getElementById('export-html-item').onclick = () => handleExport('html');
+      document.getElementById('export-excel-item').onclick = () => { setExportDropdownOpen(false); handleExport('excel'); };
+      document.getElementById('export-csv-item').onclick = () => { setExportDropdownOpen(false); handleExport('csv'); };
+      document.getElementById('export-html-item').onclick = () => { setExportDropdownOpen(false); handleExport('html'); };
       hasBoundEvents = true;
     }
 

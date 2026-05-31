@@ -109,12 +109,40 @@
                 <path d="M5 11V5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5V11"></path>
               </svg>
               导出
-              <span class="button-caret">⌄</span>
+              <span class="button-caret" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="m7 10 5 5 5-5"></path>
+                </svg>
+              </span>
             </button>
             <div id="export-dropdown" class="dropdown-menu export-menu">
-              <button class="dropdown-item" type="button" id="export-excel-item">导出 Excel</button>
-              <button class="dropdown-item" type="button" id="export-csv-item">导出 CSV</button>
-              <button class="dropdown-item" type="button" id="export-html-item">HTML 报告</button>
+              <button class="dropdown-item" type="button" id="export-excel-item">
+                <span class="dropdown-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8 3h6l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path>
+                    <path d="M14 3v5h5M9 14h6M9 17h6M9 11h2"></path>
+                  </svg>
+                </span>
+                <span>导出 Excel</span>
+              </button>
+              <button class="dropdown-item" type="button" id="export-csv-item">
+                <span class="dropdown-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path>
+                    <path d="M9 9h6M9 13h6M9 17h3"></path>
+                  </svg>
+                </span>
+                <span>导出 CSV</span>
+              </button>
+              <button class="dropdown-item" type="button" id="export-html-item">
+                <span class="dropdown-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13Z"></path>
+                    <path d="m9 9-3 3 3 3M15 9l3 3-3 3M13 8l-2 8"></path>
+                  </svg>
+                </span>
+                <span>HTML 报告</span>
+              </button>
             </div>
           </div>
           <button class="btn-primary desktop-action-btn desktop-add-shortcut" type="button" data-target="add">新增记录</button>

@@ -50,7 +50,11 @@ function createOrUpdateChart(canvas, config, updateMode = 'none') {
     existing.data.datasets = config.data.datasets;
     existing.options = config.options;
     existing.config.plugins = config.plugins || [];
-    existing.update(updateMode);
+    if (updateMode === 'default') {
+      existing.update();
+    } else {
+      existing.update(updateMode);
+    }
     return existing;
   }
 
@@ -119,11 +123,11 @@ function createDoughnutChart(canvas, data, labels, colors) {
       animation: {
         animateRotate: true,
         animateScale: true,
-        duration: getChart(canvas) ? 0 : 700,
+        duration: 760,
         easing: 'easeOutCubic'
       }
     }
-  });
+  }, 'default');
 }
 
 /**
@@ -160,8 +164,13 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
     plugins.push({
       id: 'averageLine',
       afterDraw(chart) {
-        const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea || !scales || !scales.y) return;
+
+        const { left, right } = chartArea;
+        const y = scales.y;
         const yPos = y.getPixelForValue(avgLineValue);
+        if (!Number.isFinite(yPos)) return;
         
         ctx.save();
         ctx.beginPath();
@@ -206,7 +215,8 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
       animation: {
         duration: getChart(canvas) ? 0 : 650,
         easing: 'easeOutQuart'
-      }
+      },
+      resizeDelay: 120
     }
   });
 }
@@ -283,7 +293,8 @@ function createLineChart(canvas, spentData, budgetData, labels) {
       animation: {
         duration: getChart(canvas) ? 0 : 650,
         easing: 'easeInOutCubic'
-      }
+      },
+      resizeDelay: 120
     }
   });
 }

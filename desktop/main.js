@@ -386,7 +386,8 @@ async function runSmokeTest(mainWindow) {
           { amount: 270, category: 'entertainment', note: '娱乐订阅', date: '2026-05-25' },
           { amount: 160, category: 'housing', note: '宿舍生活', date: '2026-05-25' },
           { amount: 80, category: 'social', note: '社交聚餐', date: '2026-05-24' },
-          { amount: 31, category: 'study', note: '学习资料', date: '2026-05-24' }
+          { amount: 31, category: 'study', note: '学习资料', date: '2026-05-24' },
+          { amount: 2789, category: 'transport', note: '预算压力测试', date: '2026-05-24' }
         ];
 
         const click = (selector) => {

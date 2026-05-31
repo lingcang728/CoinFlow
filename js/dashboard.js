@@ -24,6 +24,8 @@
   let hasBoundEvents = false;
   let activeLedgerFilter = 'all';
   let ledgerSortType = 'time-desc';
+  const amountAnimationFrames = new WeakMap();
+  const percentAnimationFrames = new WeakMap();
 
   function init() {
     if (!hasBoundEvents) {
@@ -81,17 +83,53 @@
 
     const prevVal = parseFloat(element.textContent.replace('¥', '').replace(/,/g, '')) || 0;
     const start = performance.now();
+    const previousFrame = amountAnimationFrames.get(element);
+    if (previousFrame) {
+      cancelAnimationFrame(previousFrame);
+    }
+
+    const easeOutCubic = (value) => 1 - Math.pow(1 - value, 3);
 
     function tick(timestamp) {
       const progress = Math.min((timestamp - start) / duration, 1);
-      const value = prevVal + (end - prevVal) * progress;
+      const value = prevVal + (end - prevVal) * easeOutCubic(progress);
       element.textContent = window.CoinFlowUtils.formatAmount(value);
       if (progress < 1) {
-        requestAnimationFrame(tick);
+        amountAnimationFrames.set(element, requestAnimationFrame(tick));
+      } else {
+        element.textContent = window.CoinFlowUtils.formatAmount(end);
+        amountAnimationFrames.delete(element);
       }
     }
 
-    requestAnimationFrame(tick);
+    amountAnimationFrames.set(element, requestAnimationFrame(tick));
+  }
+
+  function animatePercent(element, end, duration = 360) {
+    if (!element) return;
+
+    const prevVal = parseFloat(element.textContent.replace('%', '')) || 0;
+    const start = performance.now();
+    const previousFrame = percentAnimationFrames.get(element);
+    if (previousFrame) {
+      cancelAnimationFrame(previousFrame);
+    }
+
+    const easeOut = (value) => 1 - Math.pow(1 - value, 3);
+
+    function tick(timestamp) {
+      const progress = Math.min((timestamp - start) / duration, 1);
+      const value = prevVal + (end - prevVal) * easeOut(progress);
+      element.textContent = `${Math.round(value)}%`;
+      if (progress < 1) {
+        percentAnimationFrames.set(element, requestAnimationFrame(tick));
+      } else {
+        element.textContent = `${Math.round(end)}%`;
+        percentAnimationFrames.delete(element);
+      }
+    }
+
+    percentAnimationFrames.set(element, requestAnimationFrame(tick));
   }
 
   async function render() {
@@ -107,24 +145,25 @@
       const stats = await window.CoinFlowDB.getMonthlyStats(year, month);
       const dailyAverage = daysInMonth > 0 ? stats.totalSpent / daysInMonth : 0;
       const progressPercent = stats.totalBudget > 0 ? (stats.totalSpent / stats.totalBudget) * 100 : 0;
-      const remainingPercent = stats.totalBudget > 0 ? Math.max(0, (stats.remainingBudget / stats.totalBudget) * 100) : 0;
+      const remainingPercent = stats.totalBudget > 0 ? (stats.remainingBudget / stats.totalBudget) * 100 : 0;
       const clampedProgress = Math.min(progressPercent, 100);
       const progressClass = progressPercent >= 90 ? 'danger' : progressPercent >= 70 ? 'warning' : 'success';
 
-      animateAmount(spentDisplay, stats.totalSpent);
+      animateAmount(spentDisplay, stats.totalSpent, 520);
       if (remainingDisplay) {
-        remainingDisplay.textContent = window.CoinFlowUtils.formatAmount(stats.remainingBudget);
         remainingDisplay.classList.toggle('success', stats.remainingBudget >= 0);
-        remainingDisplay.style.color = stats.remainingBudget < 0 ? 'var(--color-danger)' : 'var(--color-success)';
+        remainingDisplay.classList.toggle('is-negative', stats.remainingBudget < 0);
+        animateAmount(remainingDisplay, stats.remainingBudget, 520);
       }
       if (totalBudgetDisplay) {
-        totalBudgetDisplay.textContent = window.CoinFlowUtils.formatAmount(stats.totalBudget);
+        animateAmount(totalBudgetDisplay, stats.totalBudget, 520);
       }
       if (budgetProgressText) {
-        budgetProgressText.textContent = `${Math.round(progressPercent)}%`;
+        animatePercent(budgetProgressText, progressPercent);
       }
       if (remainingBudgetRatio) {
-        remainingBudgetRatio.textContent = `${Math.round(remainingPercent)}%`;
+        remainingBudgetRatio.classList.toggle('is-negative', remainingPercent < 0);
+        animatePercent(remainingBudgetRatio, remainingPercent);
       }
       if (summaryDailyAverage) {
         summaryDailyAverage.textContent = window.CoinFlowUtils.formatAmount(dailyAverage);
@@ -225,10 +264,16 @@
           </div>
         </div>
         <div class="progress-bar-container">
-          <div class="progress-bar ${colorClass}" style="width:${Math.min(percent, 100)}%;"></div>
+          <div class="progress-bar ${colorClass}" data-width="${Math.min(percent, 100)}" style="width:0%;"></div>
         </div>
       `;
       progressList.appendChild(div);
+    });
+
+    requestAnimationFrame(() => {
+      progressList.querySelectorAll('.progress-bar[data-width]').forEach((bar) => {
+        bar.style.width = `${bar.dataset.width}%`;
+      });
     });
   }
 

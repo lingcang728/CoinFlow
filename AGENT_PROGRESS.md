@@ -55,3 +55,19 @@
 - Latest visual comparison used `CoinFlow.png`, `C:\Users\15pro\AppData\Local\Temp\coinflow-smoke.png`, and `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-final.png`.
 - `npm run build:desktop` generated `release/CoinFlow-1.0.0-portable.exe`.
 - Packaged app smoke launched `release/win-unpacked/CoinFlow.exe` with `COINFLOW_SMOKE_TEST=1` and produced `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-final.png` with no lingering CoinFlow process.
+
+## 2026-05-31 Visual Bugfix Pass
+
+- Fixed screenshot-reported desktop spacing and overflow issues across dashboard, transactions, statistics, quick-add date picker, and exported HTML report.
+- Reworked dashboard category legend sizing so percentages and amounts no longer collide in narrow desktop cards.
+- Fixed over-budget summary logic: remaining budget can now display negative money and negative percentage instead of forcing the ratio to `0%`.
+- Restored smoother dashboard amount/percentage animation with cancellable animation frames, and restored doughnut chart update animation.
+- Hardened statistics chart rendering against resize/plugin timing errors that could break or loop chart drawing.
+- Added import/export icons and replaced the export caret with a styled SVG chevron/dropdown state.
+- Updated smoke data to include an over-budget scenario (`totalSpent=5475`, `totalBudget=2800`) so the negative remaining-budget layout is covered by regression screenshots.
+- Verification:
+  - `node --check` passed for `desktop/main.js`, `js/dashboard.js`, `js/charts.js`, `js/transactions.js`, and `js/export-html.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260531160232-42656`, successful CSV/Excel/HTML exports, visible date picker, no renderer messages, and no horizontal overflow at `1366x768`, `1280x800`, or `1180x720`.
+  - Playwright Edge screenshot verified the exported HTML report at `C:\Users\15pro\AppData\Local\Temp\coinflow-report-check-20260531-overbudget.png`.
+  - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
+  - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260531161020-44888`, successful exports, no renderer messages, and no horizontal overflow in all checked viewports.
