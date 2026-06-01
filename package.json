@@ -1,6 +1,6 @@
 {
   "name": "coinflow",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Electron-first 桌面端本地记账应用",
   "main": "desktop/main.js",
   "scripts": {
@@ -8,6 +8,8 @@
     "desktop": "electron .",
     "start": "electron .",
     "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win portable",
+    "postbuild:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-release-artifacts.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
+    "shortcut:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& electron .",
     "install:electron": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& node node_modules/electron/install.js",
     "postinstall": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& node node_modules/electron/install.js"

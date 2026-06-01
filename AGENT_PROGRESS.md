@@ -137,3 +137,16 @@
   - Smoke layout checks passed at `1920x1080`, `1600x900`, `1440x900`, `1366x768`, `1280x800`, and `1180x720`.
   - `npm run build:desktop` generated `release\CoinFlow-1.0.2-portable.exe` and refreshed `release\win-unpacked\CoinFlow.exe`.
   - Portable smoke launched `release\CoinFlow-1.0.2-portable.exe` directly with `runId=20260601043918-23824`; `result.json` confirmed successful save/export checks, `RendererMessages=0`, `LayoutFailures=0`, default `InitialWidth=1168`, `InitialHeight=685`, and no lingering CoinFlow process.
+
+## 2026-06-01 Desktop Shortcut and Decimal Amount Input Fix
+
+- Added a post-build desktop shortcut workflow: `scripts\update-desktop-shortcut.ps1` creates or updates `C:\Users\15pro\Desktop\CoinFlow.lnk` to point at the current packaged portable EXE, and `npm run shortcut:desktop` can refresh it manually.
+- Added `scripts\clean-release-artifacts.ps1` and wired `postbuild:desktop` so each desktop build removes stale portable installers before updating the shortcut.
+- Changed the add-record amount control from Chromium `type=number` to a text-based decimal input, preserving caret position while allowing `.` / Chinese punctuation decimal input and limiting amounts to 8 integer digits plus 2 decimals.
+- Added Electron smoke coverage for keyboard decimal entry: typing `6`, `.`, `5` must produce `6.5`, keep the caret at the end, and normalize to `6.50` on blur.
+- Bumped the application version from `1.0.2` to `1.0.3`.
+- Verification:
+  - `node --check` passed for `js/add-record.js` and `desktop/main.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260601143227-12388`; `amountDecimalKeyboardInput` reported `type=text`, `typedValue=6.5`, `normalizedValue=6.50`, `selectionStart=3`, `selectionEnd=3`, with `RendererMessages=0`.
+  - `npm run build:desktop` generated `release\CoinFlow-1.0.3-portable.exe`, refreshed `release\win-unpacked\CoinFlow.exe`, removed stale `release\CoinFlow-1.0.2-portable.exe`, and updated `C:\Users\15pro\Desktop\CoinFlow.lnk` to target `release\CoinFlow-1.0.3-portable.exe`.
+  - Portable smoke launched `release\CoinFlow-1.0.3-portable.exe` directly with `runId=20260601143604-20828`; `result.json` confirmed successful save/export checks, decimal amount keyboard entry, `RendererMessages=0`, `LayoutFailures=0`, and no lingering CoinFlow process.

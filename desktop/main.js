@@ -744,6 +744,61 @@ async function runSmokeTest(mainWindow) {
     `, 8000);
   }
 
+  async function verifyAmountDecimalKeyboardInput() {
+    return evaluateRenderer(`
+      (async () => {
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        window.navigateToPage('add');
+        await wait(150);
+
+        const input = document.getElementById('add-amount-input');
+        if (!input) {
+          return { present: false };
+        }
+
+        const typeChar = (char) => {
+          input.dispatchEvent(new KeyboardEvent('keydown', {
+            key: char,
+            bubbles: true,
+            cancelable: true
+          }));
+          input.setRangeText(char, input.selectionStart, input.selectionEnd, 'end');
+          input.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            inputType: 'insertText',
+            data: char
+          }));
+          input.dispatchEvent(new KeyboardEvent('keyup', {
+            key: char,
+            bubbles: true
+          }));
+        };
+
+        input.value = '';
+        input.focus();
+        input.setSelectionRange(0, 0);
+        typeChar('6');
+        typeChar('.');
+        typeChar('5');
+
+        const typedValue = input.value;
+        const selectionStart = input.selectionStart;
+        const selectionEnd = input.selectionEnd;
+        input.blur();
+        await wait(80);
+
+        return {
+          present: true,
+          type: input.type,
+          typedValue,
+          normalizedValue: input.value,
+          selectionStart,
+          selectionEnd
+        };
+      })()
+    `, 5000);
+  }
+
   async function resizeForLayoutCheck(width, height) {
     mainWindow.show();
     mainWindow.restore();
@@ -809,6 +864,8 @@ async function runSmokeTest(mainWindow) {
     result.screenshots.push(await captureFreshScreenshot('date-picker'));
     mark('date-picker-month-navigation');
     result.datePickerMonthNavigation = await verifyDatePickerMonthNavigation();
+    mark('amount-decimal-keyboard');
+    result.amountDecimalKeyboardInput = await verifyAmountDecimalKeyboardInput();
     mark('quick-add-autoclose');
     result.quickAddAutoClose = await verifyQuickAddAutoClose();
 
@@ -875,6 +932,15 @@ async function runSmokeTest(mainWindow) {
         result.datePickerMonthNavigation.afterNextMonth !== '2026年06月' ||
         result.datePickerMonthNavigation.changeCount < 1) {
       throw new Error(`Date picker month navigation check failed: ${JSON.stringify(result.datePickerMonthNavigation)}`);
+    }
+    if (!result.amountDecimalKeyboardInput ||
+        !result.amountDecimalKeyboardInput.present ||
+        result.amountDecimalKeyboardInput.type !== 'text' ||
+        result.amountDecimalKeyboardInput.typedValue !== '6.5' ||
+        result.amountDecimalKeyboardInput.normalizedValue !== '6.50' ||
+        result.amountDecimalKeyboardInput.selectionStart !== 3 ||
+        result.amountDecimalKeyboardInput.selectionEnd !== 3) {
+      throw new Error(`Amount decimal keyboard check failed: ${JSON.stringify(result.amountDecimalKeyboardInput)}`);
     }
     result.resultPath = await writeSmokeArtifact('result.json', result);
 

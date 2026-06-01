@@ -141,17 +141,56 @@
     }
   }
 
-  function normalizeAmountWhileTyping() {
-    let value = amountInput.value.replace(/[^\d.]/g, '');
-    const firstDot = value.indexOf('.');
-    if (firstDot !== -1) {
-      value = value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replace(/\./g, '');
-      const [intPart, decimalPart = ''] = value.split('.');
-      value = `${intPart.slice(0, 8)}.${decimalPart.slice(0, 2)}`;
-    } else {
-      value = value.slice(0, 8);
+  function normalizeAmountText(rawValue, cursorIndex = rawValue.length) {
+    const source = String(rawValue).replace(/[，。]/g, '.');
+    const safeCursor = Number.isFinite(cursorIndex) ? Math.max(0, cursorIndex) : source.length;
+    let value = '';
+    let nextCursor = 0;
+    let hasDot = false;
+    let integerDigits = 0;
+    let decimalDigits = 0;
+
+    for (let index = 0; index < source.length; index += 1) {
+      const char = source[index];
+      const beforeCursor = index < safeCursor;
+      let accepted = false;
+
+      if (/\d/.test(char)) {
+        if (hasDot) {
+          if (decimalDigits < 2) {
+            decimalDigits += 1;
+            accepted = true;
+          }
+        } else if (integerDigits < 8) {
+          integerDigits += 1;
+          accepted = true;
+        }
+      } else if (char === '.' && !hasDot) {
+        hasDot = true;
+        accepted = true;
+      }
+
+      if (accepted) {
+        value += char;
+        if (beforeCursor) {
+          nextCursor += 1;
+        }
+      }
     }
-    amountInput.value = value;
+
+    return { value, cursor: nextCursor };
+  }
+
+  function normalizeAmountWhileTyping() {
+    const cursorIndex = amountInput.selectionStart === null ? amountInput.value.length : amountInput.selectionStart;
+    const normalized = normalizeAmountText(amountInput.value, cursorIndex);
+
+    if (amountInput.value === normalized.value) return;
+
+    amountInput.value = normalized.value;
+    if (typeof amountInput.setSelectionRange === 'function') {
+      amountInput.setSelectionRange(normalized.cursor, normalized.cursor);
+    }
   }
 
   function normalizeAmountOnBlur() {
