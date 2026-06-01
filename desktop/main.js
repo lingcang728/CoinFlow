@@ -98,8 +98,8 @@ async function registerLocalProtocol() {
 
 function createMainWindow() {
   const mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: 1180,
+    height: 720,
     minWidth: 1180,
     minHeight: 720,
     title: 'CoinFlow',

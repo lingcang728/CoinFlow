@@ -21,6 +21,8 @@ body {
   --desktop-panel-gap: clamp(12px, 1.3vw, 22px);
   --desktop-legend-gap: clamp(18px, 3cqw, 36px);
   --desktop-legend-row-gap: clamp(10px, 1.2cqw, 14px);
+  --desktop-list-edge: clamp(18px, 1.7vw, 26px);
+  --desktop-row-gap: clamp(14px, 1.35vw, 22px);
   width: 100vw !important;
   height: 100vh !important;
   min-width: 0 !important;
@@ -883,6 +885,20 @@ body {
   font-weight: 820;
 }
 
+.ledger-day-header > div:first-child,
+.transaction-day-header > div:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-day-header > div:last-child,
+.transaction-day-header > div:last-child {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
 .ledger-day-header strong,
 .transaction-day-header strong {
   color: #f6f7fb;
@@ -890,7 +906,7 @@ body {
 
 .ledger-row {
   min-height: 66px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.045);
 }
 
@@ -974,6 +990,8 @@ body {
   flex-direction: column;
   gap: 10px;
   overflow: auto;
+  padding-right: 10px !important;
+  scrollbar-gutter: stable;
 }
 
 .transaction-day-card {
@@ -996,6 +1014,42 @@ body {
 
 .tx-item-row:last-child {
   border-bottom: 0;
+}
+
+.desktop-shell .desktop-transactions-list .transaction-day-header {
+  padding-inline: var(--desktop-list-edge) !important;
+}
+
+.desktop-shell .desktop-transactions-list .tx-item-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) max-content !important;
+  gap: var(--desktop-row-gap) !important;
+  min-height: 62px !important;
+  padding: 12px var(--desktop-list-edge) !important;
+}
+
+.desktop-shell .desktop-transactions-list .tx-left {
+  gap: 13px !important;
+  overflow: hidden;
+}
+
+.desktop-shell .desktop-transactions-list .tx-left > div {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.desktop-shell .desktop-transactions-list .tx-amount,
+.desktop-shell .dashboard-ledger-list .ledger-amount {
+  justify-self: end;
+  min-width: max-content;
+  padding-left: 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-shell .dashboard-ledger-list .ledger-row {
+  gap: 14px !important;
+  padding-inline: 16px !important;
 }
 
 .statistics-grid {

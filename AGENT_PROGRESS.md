@@ -125,3 +125,15 @@
 - Added the requested `agents.md` rule that after producing a new desktop installer, agents must remove old version installers and stale packaging leftovers so `release/` does not accumulate obsolete packages.
 - Current cleanup audit found `release\CoinFlow-1.0.0-portable.exe` as the stale portable installer after the `1.0.1` build.
 - Deleted the stale `1.0.0` portable installer and kept the current `release\CoinFlow-1.0.1-portable.exe`, current `release\win-unpacked\`, and current `builder-debug.yml`.
+
+## 2026-06-01 Minimum Window and Transaction Spacing Fix
+
+- Changed the Electron default `BrowserWindow` size from `1440x900` to the supported minimum `1180x720`, while keeping the existing `minWidth` and `minHeight` guards unchanged.
+- Fixed the desktop transaction detail list spacing by overriding the legacy mobile row padding with higher-specificity desktop rules, widening row/header horizontal padding, preserving tabular amount alignment, and applying the same right-alignment protection to dashboard ledger amounts.
+- Bumped the application version from `1.0.1` to `1.0.2`.
+- Cleaned stale release output after packaging, removing `release\CoinFlow-1.0.1-portable.exe` and keeping only `release\CoinFlow-1.0.2-portable.exe`, current `release\win-unpacked\`, and current `builder-debug.yml`.
+- Verification:
+  - Source `npm run smoke:desktop` passed with `runId=20260601043500-40552`; initial launch rendered at the new compact default with `innerWidth=1168`, `innerHeight=685`, no horizontal overflow, no renderer messages, and the transaction screenshot showed widened row padding.
+  - Smoke layout checks passed at `1920x1080`, `1600x900`, `1440x900`, `1366x768`, `1280x800`, and `1180x720`.
+  - `npm run build:desktop` generated `release\CoinFlow-1.0.2-portable.exe` and refreshed `release\win-unpacked\CoinFlow.exe`.
+  - Portable smoke launched `release\CoinFlow-1.0.2-portable.exe` directly with `runId=20260601043918-23824`; `result.json` confirmed successful save/export checks, `RendererMessages=0`, `LayoutFailures=0`, default `InitialWidth=1168`, `InitialHeight=685`, and no lingering CoinFlow process.
