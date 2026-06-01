@@ -1,10 +1,12 @@
 // Chart.js 4.x 图表配置与封装
 // 所有的图表主题均采用 CoinFlow 的深色磨砂玻璃与橙金视觉风格
 
+const CHART_FONT_FAMILY = "Inter, 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
 // 设置 Chart.js 默认全局样式
 if (window.Chart) {
   window.Chart.defaults.color = 'rgba(255, 255, 255, 0.6)';
-  window.Chart.defaults.font.family = "Inter, 'Noto Sans SC', sans-serif";
+  window.Chart.defaults.font.family = CHART_FONT_FAMILY;
   window.Chart.defaults.font.size = 11;
   window.Chart.defaults.responsive = true;
   window.Chart.defaults.maintainAspectRatio = false;
@@ -183,7 +185,7 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
         
         // 绘制文字标记
         ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-        ctx.font = '9px Inter';
+        ctx.font = `9px ${CHART_FONT_FAMILY}`;
         ctx.fillText(`日均: ¥${avgLineValue.toFixed(1)}`, right - 65, yPos - 5);
         ctx.restore();
       }

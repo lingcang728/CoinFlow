@@ -981,16 +981,20 @@ body {
 }
 
 .statistics-grid {
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: min-content;
   display: grid;
   grid-template-columns: minmax(360px, 1.08fr) minmax(330px, 0.92fr);
-  grid-template-rows: minmax(260px, 0.94fr) minmax(280px, 1.06fr);
+  grid-template-rows: auto auto;
   gap: 18px;
+  align-items: start;
 }
 
 #page-statistics .desktop-page-stack {
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 18px;
+  overscroll-behavior: contain;
 }
 
 .statistics-grid > .desktop-card {
@@ -1005,18 +1009,20 @@ body {
 }
 
 .chart-stage {
-  flex: 1;
-  min-height: 220px;
-  height: auto !important;
+  flex: 0 0 auto;
+  min-height: 250px;
+  height: 250px !important;
   margin-top: 12px;
 }
 
 .stat-daily-card .chart-stage {
-  min-height: 250px;
+  height: 270px !important;
+  min-height: 270px;
 }
 
 .trend-card .chart-stage {
-  min-height: 270px;
+  height: 310px !important;
+  min-height: 310px;
 }
 
 .heatmap-grid {
@@ -1028,6 +1034,9 @@ body {
 
 .heatmap-card .heatmap-grid {
   flex: 0 0 auto;
+  width: min(100%, 392px);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .heatmap-legend,

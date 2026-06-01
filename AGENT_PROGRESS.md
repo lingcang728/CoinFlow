@@ -71,3 +71,14 @@
   - Playwright Edge screenshot verified the exported HTML report at `C:\Users\15pro\AppData\Local\Temp\coinflow-report-check-20260531-overbudget.png`.
   - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
   - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260531161020-44888`, successful exports, no renderer messages, and no horizontal overflow in all checked viewports.
+
+## 2026-06-01 Statistics Layout Scroll Fix
+
+- Fixed the statistics page card layout so the heatmap, trend chart, and rank card use natural vertical space instead of being compressed into a fixed viewport grid.
+- Restored vertical scrolling on `#page-statistics .desktop-page-stack`; source and packaged smoke now assert that the statistics panel can scroll.
+- Hardened Chart.js font configuration with Windows Chinese font fallbacks so canvas-rendered labels stay readable on the desktop build.
+- Verification:
+  - `node --check` passed for `desktop/main.js` and `js/charts.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260601025918-35740`; statistics scroll state was `clientHeight=714`, `scrollHeight=1308`, `maxScrollTop=594`, `canScroll=true`, `scrolled=true`.
+  - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
+  - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260601030529-18416`, successful exports, no renderer messages, and the same statistics scroll assertion passing.

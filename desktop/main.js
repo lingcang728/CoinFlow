@@ -317,6 +317,32 @@ async function runSmokeTest(mainWindow) {
     `);
   }
 
+  async function verifyStatisticsScroll() {
+    return evaluateRenderer(`
+      (() => {
+        const stack = document.querySelector('#page-statistics .desktop-page-stack');
+        if (!stack) {
+          return { present: false, canScroll: false, scrolled: false };
+        }
+
+        const previousTop = stack.scrollTop;
+        const maxScrollTop = Math.max(0, stack.scrollHeight - stack.clientHeight);
+        stack.scrollTop = maxScrollTop;
+        const scrolledTop = stack.scrollTop;
+        stack.scrollTop = previousTop;
+
+        return {
+          present: true,
+          clientHeight: Math.round(stack.clientHeight),
+          scrollHeight: Math.round(stack.scrollHeight),
+          maxScrollTop: Math.round(maxScrollTop),
+          canScroll: maxScrollTop > 2,
+          scrolled: scrolledTop > 2
+        };
+      })()
+    `, 5000);
+  }
+
   async function captureFreshScreenshot(label) {
     await waitForRendererIdle();
     const filePath = screenshotPathFor(label);
@@ -576,6 +602,7 @@ async function runSmokeTest(mainWindow) {
     mark('capture-statistics');
     await showPage('statistics');
     result.screenshots.push(await captureFreshScreenshot('statistics'));
+    result.statisticsScroll = await verifyStatisticsScroll();
     mark('capture-date-picker');
     result.datePickerVisible = await openDatePickerForScreenshot();
     result.screenshots.push(await captureFreshScreenshot('date-picker'));
@@ -609,6 +636,9 @@ async function runSmokeTest(mainWindow) {
     }
     if (!Object.values(result.smokeData.exportResults).every(Boolean)) {
       throw new Error(`Smoke export check failed: ${JSON.stringify(result.smokeData.exportResults)}`);
+    }
+    if (!result.statisticsScroll.present || !result.statisticsScroll.canScroll || !result.statisticsScroll.scrolled) {
+      throw new Error(`Statistics scroll check failed: ${JSON.stringify(result.statisticsScroll)}`);
     }
     if (!result.datePickerVisible) {
       throw new Error('Smoke date picker check failed');
