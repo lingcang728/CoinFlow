@@ -119,3 +119,9 @@
   - Source `npm run smoke:desktop` passed with `runId=20260601041440-43428`; `visibleAfterPrev=true`, `afterPrevMonth=2026年05月`, `selectedValue=2026-05-15`, `visibleAfterNext=true`, `afterNextMonth=2026年06月`, and `rendererMessages=[]`.
   - `npm run build:desktop` generated `release\CoinFlow-1.0.1-portable.exe` and refreshed `release\win-unpacked\CoinFlow.exe`.
   - Packaged smoke passed from `release\win-unpacked\CoinFlow.exe` with `runId=20260601041740-33504`; result file was `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-20260601121739\result.json`, with `VisibleAfterPrev=True`, `VisibleAfterNext=True`, `DatePickerSelected=2026-05-15`, `RendererMessages=0`, and six layout checks passing.
+
+## 2026-06-01 Release Artifact Cleanup Rule
+
+- Added the requested `agents.md` rule that after producing a new desktop installer, agents must remove old version installers and stale packaging leftovers so `release/` does not accumulate obsolete packages.
+- Current cleanup audit found `release\CoinFlow-1.0.0-portable.exe` as the stale portable installer after the `1.0.1` build.
+- Deleted the stale `1.0.0` portable installer and kept the current `release\CoinFlow-1.0.1-portable.exe`, current `release\win-unpacked\`, and current `builder-debug.yml`.
