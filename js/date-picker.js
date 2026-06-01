@@ -35,6 +35,15 @@
       a.getDate() === b.getDate();
   }
 
+  function getButtonFromEvent(event) {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    const pathButton = path.find(node => node instanceof HTMLElement && node.tagName === 'BUTTON');
+    if (pathButton) return pathButton;
+
+    const target = event.target;
+    return target instanceof HTMLElement ? target.closest('button') : null;
+  }
+
   function buildInstance(input, options = {}) {
     const trigger = options.trigger || input.nextElementSibling;
     if (!trigger) {
@@ -149,8 +158,8 @@
     }
 
     popover.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
+      const target = getButtonFromEvent(event);
+      if (!target || !popover.contains(target)) return;
 
       if (target.classList.contains('date-picker-prev')) {
         changeMonth(-1);

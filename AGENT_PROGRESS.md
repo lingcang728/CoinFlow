@@ -95,3 +95,14 @@
   - Source `npm run smoke:desktop` passed with `runId=20260601034151-43664`; all six layout viewports reported `horizontalOverflow=false`, `legendIssues=[]`, and quick-add auto-close passed.
   - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
   - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260601034453-39328`, successful CSV/Excel/HTML exports, all six layout checks passing, quick-add auto-close passing, and no lingering CoinFlow process.
+
+## 2026-06-01 Date Picker Month Navigation Fix
+
+- Fixed the add-record date picker so month navigation clicks resolve through the full event path, allowing the previous/next month buttons to work even when the click lands on the arrow glyph or nested button content.
+- Added a smoke regression check for the exact补记 flow: open the picker at `2026-06-01`, click previous month to `2026年05月`, choose `2026-05-15`, reopen the picker, and confirm next month returns to `2026年06月`.
+- Increased the smoke watchdog from 45 seconds to 90 seconds because the added rendered date-picker regression pushed packaged Electron smoke close to the old timeout while still completing normally.
+- Verification:
+  - `node --check` passed for `desktop/main.js` and `js/date-picker.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260601035814-9032`; `datePickerMonthNavigation` reported `initialMonth=2026年06月`, `afterPrevMonth=2026年05月`, `selectedValue=2026-05-15`, `afterNextMonth=2026年06月`, and `rendererMessages=[]`.
+  - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
+  - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260601040110-26680`; result file was `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-20260601120109\result.json`, with the same date-picker month navigation assertions passing, `RendererMessages=0`, and six layout checks passing.
