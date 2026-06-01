@@ -708,6 +708,7 @@ async function runSmokeTest(mainWindow) {
         const initialMonth = document.querySelector('.date-picker-month')?.textContent.trim() || '';
         document.querySelector('.date-picker-prev')?.click();
         await wait(120);
+        const visibleAfterPrev = Boolean(document.querySelector('.date-picker-popover:not([hidden])'));
         const afterPrevMonth = document.querySelector('.date-picker-month')?.textContent.trim() || '';
         document.querySelector('.date-picker-day[data-date="2026-05-15"]')?.click();
         await wait(120);
@@ -721,6 +722,7 @@ async function runSmokeTest(mainWindow) {
         const reopenedMonth = document.querySelector('.date-picker-month')?.textContent.trim() || '';
         document.querySelector('.date-picker-next')?.click();
         await wait(120);
+        const visibleAfterNext = Boolean(document.querySelector('.date-picker-popover:not([hidden])'));
         const afterNextMonth = document.querySelector('.date-picker-month')?.textContent.trim() || '';
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
         input.removeEventListener('change', onChange);
@@ -728,11 +730,13 @@ async function runSmokeTest(mainWindow) {
         return {
           initialMonth,
           opened,
+          visibleAfterPrev,
           afterPrevMonth,
           selectedValue,
           selectedLabel,
           closedAfterSelection,
           reopenedMonth,
+          visibleAfterNext,
           afterNextMonth,
           changeCount
         };
@@ -861,11 +865,13 @@ async function runSmokeTest(mainWindow) {
     if (!result.datePickerMonthNavigation ||
         !result.datePickerMonthNavigation.opened ||
         result.datePickerMonthNavigation.initialMonth !== '2026年06月' ||
+        !result.datePickerMonthNavigation.visibleAfterPrev ||
         result.datePickerMonthNavigation.afterPrevMonth !== '2026年05月' ||
         result.datePickerMonthNavigation.selectedValue !== '2026-05-15' ||
         result.datePickerMonthNavigation.selectedLabel !== '2026-05-15' ||
         !result.datePickerMonthNavigation.closedAfterSelection ||
         result.datePickerMonthNavigation.reopenedMonth !== '2026年05月' ||
+        !result.datePickerMonthNavigation.visibleAfterNext ||
         result.datePickerMonthNavigation.afterNextMonth !== '2026年06月' ||
         result.datePickerMonthNavigation.changeCount < 1) {
       throw new Error(`Date picker month navigation check failed: ${JSON.stringify(result.datePickerMonthNavigation)}`);

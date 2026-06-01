@@ -106,3 +106,16 @@
   - Source `npm run smoke:desktop` passed with `runId=20260601035814-9032`; `datePickerMonthNavigation` reported `initialMonth=2026年06月`, `afterPrevMonth=2026年05月`, `selectedValue=2026-05-15`, `afterNextMonth=2026年06月`, and `rendererMessages=[]`.
   - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
   - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260601040110-26680`; result file was `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-20260601120109\result.json`, with the same date-picker month navigation assertions passing, `RendererMessages=0`, and six layout checks passing.
+
+## 2026-06-01 Date Picker Close Regression and Version Rule
+
+- Fixed the real user-facing date picker regression where clicking previous/next month rebuilt the calendar DOM, then the global outside-click listener treated the same click as external and closed the picker.
+- The picker now stops propagation for internal trigger/popover clicks and the global outside-click guard checks the composed event path, so month navigation stays open while still closing on genuine outside clicks.
+- Strengthened smoke coverage: `datePickerMonthNavigation` now asserts `visibleAfterPrev=true` and `visibleAfterNext=true`, not only that the hidden input can be changed programmatically.
+- Added the requested `agents.md` rule that every desktop rebuild must increment `package.json` and `package-lock.json` versions before packaging, so `.exe` artifacts no longer remain on stale version numbers.
+- Bumped the application version from `1.0.0` to `1.0.1`.
+- Verification:
+  - `node --check` passed for `desktop/main.js` and `js/date-picker.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260601041440-43428`; `visibleAfterPrev=true`, `afterPrevMonth=2026年05月`, `selectedValue=2026-05-15`, `visibleAfterNext=true`, `afterNextMonth=2026年06月`, and `rendererMessages=[]`.
+  - `npm run build:desktop` generated `release\CoinFlow-1.0.1-portable.exe` and refreshed `release\win-unpacked\CoinFlow.exe`.
+  - Packaged smoke passed from `release\win-unpacked\CoinFlow.exe` with `runId=20260601041740-33504`; result file was `C:\Users\15pro\AppData\Local\Temp\coinflow-packaged-smoke-20260601121739\result.json`, with `VisibleAfterPrev=True`, `VisibleAfterNext=True`, `DatePickerSelected=2026-05-15`, `RendererMessages=0`, and six layout checks passing.

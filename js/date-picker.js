@@ -44,6 +44,14 @@
     return target instanceof HTMLElement ? target.closest('button') : null;
   }
 
+  function eventCameFromElement(event, element) {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    if (path.includes(element)) return true;
+
+    const target = event.target;
+    return target instanceof Node && element.contains(target);
+  }
+
   function buildInstance(input, options = {}) {
     const trigger = options.trigger || input.nextElementSibling;
     if (!trigger) {
@@ -160,6 +168,7 @@
     popover.addEventListener('click', (event) => {
       const target = getButtonFromEvent(event);
       if (!target || !popover.contains(target)) return;
+      event.stopPropagation();
 
       if (target.classList.contains('date-picker-prev')) {
         changeMonth(-1);
@@ -179,6 +188,7 @@
 
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
+      event.stopPropagation();
       toggle();
     });
 
@@ -193,8 +203,7 @@
 
   document.addEventListener('click', (event) => {
     if (!openInstance) return;
-    const target = event.target;
-    if (openInstance.popover.contains(target) || openInstance.trigger.contains(target)) return;
+    if (eventCameFromElement(event, openInstance.popover) || eventCameFromElement(event, openInstance.trigger)) return;
     openInstance.close();
   });
 
