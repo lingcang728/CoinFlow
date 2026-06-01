@@ -82,3 +82,16 @@
   - Source `npm run smoke:desktop` passed with `runId=20260601025918-35740`; statistics scroll state was `clientHeight=714`, `scrollHeight=1308`, `maxScrollTop=594`, `canScroll=true`, `scrolled=true`.
   - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
   - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260601030529-18416`, successful exports, no renderer messages, and the same statistics scroll assertion passing.
+
+## 2026-06-01 Desktop Scaling and Smoke Pipe Fix
+
+- Fixed dashboard doughnut legend scaling with container queries, `clamp()` sizing, auto-fitting legend rows, and content-width numeric columns so category names can shrink without clipping amounts or percentages.
+- Changed the quick-add panel to a compact-width drawer below 1500px, with close/backdrop controls and automatic close when navigating to dashboard, transactions, or statistics.
+- Added resize observers for chart containers so Chart.js recalculates after continuous desktop resizing.
+- Expanded Electron smoke coverage to `1920x1080`, `1600x900`, `1440x900`, `1366x768`, `1280x800`, and `1180x720`; smoke now asserts no horizontal overflow, no clipped doughnut legend values, and quick-add auto-close at compact width.
+- Fixed packaged smoke `EPIPE: broken pipe` dialogs by replacing smoke `console.log/error` calls with guarded stdout/stderr writes; `result.json` remains the source of truth when a GUI process loses its console pipe.
+- Verification:
+  - `node --check` passed for `desktop/main.js`, `js/app.js`, `js/dashboard.js`, and `js/charts.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260601034151-43664`; all six layout viewports reported `horizontalOverflow=false`, `legendIssues=[]`, and quick-add auto-close passed.
+  - `npm run build:desktop` regenerated `release/CoinFlow-1.0.0-portable.exe` and `release/win-unpacked/CoinFlow.exe`.
+  - Packaged smoke passed from `release/win-unpacked/CoinFlow.exe` with `runId=20260601034453-39328`, successful CSV/Excel/HTML exports, all six layout checks passing, quick-add auto-close passing, and no lingering CoinFlow process.

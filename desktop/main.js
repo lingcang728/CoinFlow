@@ -5,8 +5,52 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const APP_SCHEME = 'coinflow';
+const IS_SMOKE_TEST = process.env.COINFLOW_SMOKE_TEST === '1';
 
-if (process.env.COINFLOW_SMOKE_TEST === '1') {
+const smokePipeClosed = {
+  stdout: false,
+  stderr: false
+};
+
+function isBrokenPipeError(error) {
+  return Boolean(error && (error.code === 'EPIPE' || error.code === 'ERR_STREAM_DESTROYED'));
+}
+
+function handleSmokeStreamError(streamName, error) {
+  if (isBrokenPipeError(error)) {
+    smokePipeClosed[streamName] = true;
+  }
+}
+
+function writeSmokeLine(line, streamName = 'stdout') {
+  if (!IS_SMOKE_TEST) {
+    if (streamName === 'stderr') {
+      console.error(line);
+    } else {
+      console.log(line);
+    }
+    return;
+  }
+
+  const stream = streamName === 'stderr' ? process.stderr : process.stdout;
+  if (!stream || stream.destroyed || stream.writableEnded || smokePipeClosed[streamName]) {
+    return;
+  }
+
+  try {
+    stream.write(`${line}\n`, (error) => {
+      if (error) {
+        handleSmokeStreamError(streamName, error);
+      }
+    });
+  } catch (error) {
+    handleSmokeStreamError(streamName, error);
+  }
+}
+
+if (IS_SMOKE_TEST) {
+  process.stdout.on('error', (error) => handleSmokeStreamError('stdout', error));
+  process.stderr.on('error', (error) => handleSmokeStreamError('stderr', error));
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('disable-gpu');
   app.setPath('userData', path.join(os.tmpdir(), `coinflow-smoke-profile-${process.pid}`));
@@ -122,7 +166,7 @@ function registerIpcHandlers() {
     const filters = Array.isArray(payload.filters) ? payload.filters : [{ name: 'All Files', extensions: ['*'] }];
     const buffer = normalizeSaveData(payload.data, payload.encoding);
 
-    if (process.env.COINFLOW_SMOKE_TEST === '1') {
+    if (IS_SMOKE_TEST) {
       const exportDir = process.env.COINFLOW_SMOKE_EXPORT_DIR || path.join(os.tmpdir(), 'coinflow-smoke-exports');
       await fs.promises.mkdir(exportDir, { recursive: true });
       const safeName = path.basename(defaultPath).replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
@@ -191,7 +235,7 @@ async function runSmokeTest(mainWindow) {
   process.env.COINFLOW_SMOKE_EXPORT_DIR = exportDir;
 
   function mark(stage) {
-    console.log(`COINFLOW_SMOKE_STAGE=${stage}`);
+    writeSmokeLine(`COINFLOW_SMOKE_STAGE=${stage}`);
   }
 
   async function writeSmokeArtifact(fileName, payload) {
@@ -201,7 +245,7 @@ async function runSmokeTest(mainWindow) {
       await fs.promises.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
       return filePath;
     } catch (error) {
-      console.error(`COINFLOW_SMOKE_ARTIFACT_ERROR=${error.stack || error.message}`);
+      writeSmokeLine(`COINFLOW_SMOKE_ARTIFACT_ERROR=${error.stack || error.message}`, 'stderr');
       return null;
     }
   }
@@ -274,11 +318,37 @@ async function runSmokeTest(mainWindow) {
         const shell = document.getElementById('app-container');
         const shellRect = shell ? shell.getBoundingClientRect() : { width: 0, height: 0 };
         const activePages = Array.from(document.querySelectorAll('.desktop-page.active')).map(el => el.id);
+        const doughnutCard = document.querySelector('.doughnut-card');
+        const doughnutCardRect = doughnutCard ? doughnutCard.getBoundingClientRect() : null;
+        const legendIssues = Array.from(document.querySelectorAll('#chart-legend-container .legend-value, #chart-legend-container .legend-ratio')).map((el) => {
+          const rect = el.getBoundingClientRect();
+          return {
+            text: el.textContent.trim(),
+            className: el.className,
+            clientWidth: Math.round(el.clientWidth),
+            scrollWidth: Math.round(el.scrollWidth),
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            clippedByBox: el.scrollWidth > el.clientWidth + 1,
+            outsideCard: doughnutCardRect ? (rect.left < doughnutCardRect.left - 1 || rect.right > doughnutCardRect.right + 1) : false
+          };
+        }).filter(item => item.clippedByBox || item.outsideCard);
+        const quickAdd = document.querySelector('.desktop-quick-add');
+        const quickAddRect = quickAdd ? quickAdd.getBoundingClientRect() : null;
+        const quickAddStyle = quickAdd ? window.getComputedStyle(quickAdd) : null;
+        const quickAddVisible = Boolean(quickAdd && quickAddRect && quickAddStyle &&
+          quickAddStyle.display !== 'none' &&
+          quickAddStyle.visibility !== 'hidden' &&
+          quickAddRect.width > 0 &&
+          quickAddRect.right > 1 &&
+          quickAddRect.left < window.innerWidth - 1);
         const rootOverflow = document.documentElement.scrollWidth > window.innerWidth + 2;
         const bodyOverflow = document.body.scrollWidth > window.innerWidth + 2;
         const visibleDatePickers = Array.from(document.querySelectorAll('.date-picker-popover')).filter(el => !el.hidden).length;
         const activeDropdowns = document.querySelectorAll('.dropdown-menu.active').length;
-        const offenders = Array.from(document.querySelectorAll('body *')).map((el) => {
+        const offenders = Array.from(document.querySelectorAll('body *')).filter((el) => {
+          return quickAddVisible || !el.closest('.desktop-quick-add');
+        }).map((el) => {
           const rect = el.getBoundingClientRect();
           const style = window.getComputedStyle(el);
           return {
@@ -306,6 +376,9 @@ async function runSmokeTest(mainWindow) {
           shellWidth: Math.round(shellRect.width),
           shellHeight: Math.round(shellRect.height),
           horizontalOverflow: rootOverflow || bodyOverflow,
+          legendIssues,
+          quickAddOpen: document.body.classList.contains('quick-add-open'),
+          quickAddVisible,
           visibleDatePickers,
           activeDropdowns,
           bottomNavPresent: Boolean(document.querySelector('.bottom-nav')),
@@ -338,6 +411,65 @@ async function runSmokeTest(mainWindow) {
           maxScrollTop: Math.round(maxScrollTop),
           canScroll: maxScrollTop > 2,
           scrolled: scrolledTop > 2
+        };
+      })()
+    `, 5000);
+  }
+
+  async function verifyQuickAddAutoClose() {
+    await resizeForLayoutCheck(1280, 800);
+    return evaluateRenderer(`
+      (async () => {
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const getPanelState = () => {
+          const panel = document.querySelector('.desktop-quick-add');
+          if (!panel) return { present: false, visible: false };
+          const rect = panel.getBoundingClientRect();
+          const style = window.getComputedStyle(panel);
+          const visible = style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            rect.width > 0 &&
+            rect.right > 1 &&
+            rect.left < window.innerWidth - 1;
+          return {
+            present: true,
+            visible,
+            display: style.display,
+            visibility: style.visibility,
+            opacity: style.opacity,
+            transform: style.transform,
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width)
+          };
+        };
+
+        window.navigateToPage('add');
+        await wait(260);
+        const opened = document.body.classList.contains('quick-add-open');
+        const panelAfterOpen = getPanelState();
+        const visibleAfterOpen = panelAfterOpen.visible;
+
+        window.navigateToPage('statistics');
+        await wait(260);
+        const closedAfterNavigation = !document.body.classList.contains('quick-add-open');
+        const panelAfterNavigation = getPanelState();
+        const hiddenAfterNavigation = !panelAfterNavigation.visible;
+        const currentPage = typeof window.getCurrentPageId === 'function' ? window.getCurrentPageId() : null;
+
+        window.navigateToPage('dashboard');
+        await wait(120);
+
+        return {
+          opened,
+          visibleAfterOpen,
+          closedAfterNavigation,
+          hiddenAfterNavigation,
+          currentPage,
+          panelAfterOpen,
+          panelAfterNavigation,
+          width: window.innerWidth,
+          height: window.innerHeight
         };
       })()
     `, 5000);
@@ -562,7 +694,7 @@ async function runSmokeTest(mainWindow) {
   }
 
   const failTimer = setTimeout(() => {
-    console.error('COINFLOW_SMOKE_ERROR=Timed out');
+    writeSmokeLine('COINFLOW_SMOKE_ERROR=Timed out', 'stderr');
     app.exit(1);
   }, 45000);
 
@@ -606,8 +738,13 @@ async function runSmokeTest(mainWindow) {
     mark('capture-date-picker');
     result.datePickerVisible = await openDatePickerForScreenshot();
     result.screenshots.push(await captureFreshScreenshot('date-picker'));
+    mark('quick-add-autoclose');
+    result.quickAddAutoClose = await verifyQuickAddAutoClose();
 
     const layoutSizes = [
+      { width: 1920, height: 1080 },
+      { width: 1600, height: 900 },
+      { width: 1440, height: 900 },
       { width: 1366, height: 768 },
       { width: 1280, height: 800 },
       { width: 1180, height: 720 }
@@ -627,9 +764,20 @@ async function runSmokeTest(mainWindow) {
     }
 
     result.rendererMessages = mainWindow.__coinflowRendererMessages;
-    const badLayout = result.layoutChecks.find(check => check.horizontalOverflow || check.activePages.length !== 1);
+    const badLayout = result.layoutChecks.find(check =>
+      check.horizontalOverflow ||
+      check.activePages.length !== 1 ||
+      (Array.isArray(check.legendIssues) && check.legendIssues.length > 0)
+    );
     if (badLayout) {
       throw new Error(`Desktop layout check failed: ${JSON.stringify(badLayout)}`);
+    }
+    if (!result.quickAddAutoClose.opened ||
+        !result.quickAddAutoClose.visibleAfterOpen ||
+        !result.quickAddAutoClose.closedAfterNavigation ||
+        !result.quickAddAutoClose.hiddenAfterNavigation ||
+        result.quickAddAutoClose.currentPage !== 'statistics') {
+      throw new Error(`Quick-add auto close check failed: ${JSON.stringify(result.quickAddAutoClose)}`);
     }
     if (!result.smokeData.saved || result.smokeData.transactionCount !== result.smokeData.seededCount) {
       throw new Error(`Smoke data check failed: ${JSON.stringify(result.smokeData)}`);
@@ -645,10 +793,10 @@ async function runSmokeTest(mainWindow) {
     }
     result.resultPath = await writeSmokeArtifact('result.json', result);
 
-    console.log(`COINFLOW_SMOKE_RESULT=${JSON.stringify(result)}`);
+    writeSmokeLine(`COINFLOW_SMOKE_RESULT=${JSON.stringify(result)}`);
     if (result.screenshots.length > 0) {
-      console.log(`COINFLOW_SMOKE_SCREENSHOT=${result.screenshots[0].filePath}`);
-      console.log(`COINFLOW_SMOKE_SCREENSHOTS=${JSON.stringify(result.screenshots.map(item => item.filePath))}`);
+      writeSmokeLine(`COINFLOW_SMOKE_SCREENSHOT=${result.screenshots[0].filePath}`);
+      writeSmokeLine(`COINFLOW_SMOKE_SCREENSHOTS=${JSON.stringify(result.screenshots.map(item => item.filePath))}`);
     }
     clearTimeout(failTimer);
     app.quit();
@@ -663,7 +811,7 @@ async function runSmokeTest(mainWindow) {
       exportDir,
       rendererMessages: mainWindow.__coinflowRendererMessages || []
     });
-    console.error(`COINFLOW_SMOKE_ERROR=${error.stack || error.message}`);
+    writeSmokeLine(`COINFLOW_SMOKE_ERROR=${error.stack || error.message}`, 'stderr');
     app.exit(1);
   }
 }
@@ -673,7 +821,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   const mainWindow = createMainWindow();
 
-  if (process.env.COINFLOW_SMOKE_TEST === '1') {
+  if (IS_SMOKE_TEST) {
     runSmokeTest(mainWindow);
   }
 

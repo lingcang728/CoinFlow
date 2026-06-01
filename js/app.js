@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const topbarBudget = document.getElementById('topbar-budget-display');
   const topbarAverage = document.getElementById('topbar-average-display');
   const quickAddPanel = document.querySelector('.desktop-quick-add');
+  const quickAddBackdrop = document.querySelector('.quick-add-backdrop');
+  let resizeFrame = 0;
+  let layoutObserver = null;
 
   function formatMonthLabel() {
     const { currentYear, currentMonth } = window.CoinFlowState;
@@ -101,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetEl = document.getElementById(`page-${targetPageId}`);
     if (!targetEl) return false;
 
+    closeQuickAddPanel();
     switchToken += 1;
     const token = switchToken;
 
@@ -143,9 +147,36 @@ document.addEventListener('DOMContentLoaded', () => {
   function openQuickAddPanel() {
     document.body.classList.add('quick-add-open');
     if (quickAddPanel) {
+      quickAddPanel.classList.add('is-open');
       quickAddPanel.scrollTop = 0;
     }
+    if (quickAddBackdrop) {
+      quickAddBackdrop.classList.add('is-open');
+    }
     focusQuickAddAmount();
+  }
+
+  function closeQuickAddPanel() {
+    if (quickAddPanel && quickAddPanel.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    document.body.classList.remove('quick-add-open');
+    if (quickAddPanel) {
+      quickAddPanel.classList.remove('is-open');
+    }
+    if (quickAddBackdrop) {
+      quickAddBackdrop.classList.remove('is-open');
+    }
+  }
+
+  function scheduleLayoutResize() {
+    if (resizeFrame) {
+      cancelAnimationFrame(resizeFrame);
+    }
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      triggerChartResize();
+    });
   }
 
   function focusQuickAddAmount() {
@@ -172,8 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        document.body.classList.remove('quick-add-open');
+        closeQuickAddPanel();
       }
+    });
+
+    document.querySelectorAll('[data-close-quick-add]').forEach((item) => {
+      item.addEventListener('click', () => closeQuickAddPanel());
     });
 
     if (prevMonthBtn) {
@@ -181,6 +216,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener('click', () => changeMonth(1));
+    }
+
+    window.addEventListener('resize', scheduleLayoutResize);
+
+    if (window.ResizeObserver) {
+      layoutObserver = new ResizeObserver(scheduleLayoutResize);
+      document.querySelectorAll('.desktop-content, .doughnut-card, .chart-stage, .doughnut-stage').forEach((el) => {
+        layoutObserver.observe(el);
+      });
     }
   }
 
@@ -193,6 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.openQuickAdd = openQuickAddPanel;
+  window.closeQuickAdd = closeQuickAddPanel;
   window.focusQuickAdd = focusQuickAddAmount;
   window.refreshCurrentPage = function() {
     triggerPageInit(currentPageId);
@@ -216,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.CoinFlowRecordForm && typeof window.CoinFlowRecordForm.mount === 'function') {
     window.CoinFlowRecordForm.mount(document.getElementById('desktop-record-form'), {
       onSaved: () => {
-        document.body.classList.remove('quick-add-open');
+        closeQuickAddPanel();
       }
     });
   } else if (window.CoinFlowAddRecord && typeof window.CoinFlowAddRecord.init === 'function') {
