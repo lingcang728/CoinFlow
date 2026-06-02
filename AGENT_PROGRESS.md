@@ -221,3 +221,21 @@
   - `npm run build:desktop` produced `release\CoinFlow-Setup-1.1.0.exe`, `release\CoinFlow-Setup-1.1.0.exe.blockmap`, `release\latest.yml`, and refreshed `release\win-unpacked\`; cleanup removed stale `1.0.9` artifacts and `builder-debug.yml`.
   - Silent installer validation installed `1.1.0` to `%LOCALAPPDATA%\Programs\CoinFlow`, and installed smoke passed with `runId=20260602071323-27252`; installed `app-update.yml` points to `https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`. Validation-launched CoinFlow processes were stopped afterward.
 - Files to upload to COS Bucket root: `latest.yml`, `CoinFlow-Setup-1.1.0.exe`, `CoinFlow-Setup-1.1.0.exe.blockmap`.
+
+## 2026-06-02 Category Icon Matching Stability + Scroll Fix (1.1.2)
+
+- Reworked category icon matching from first substring hit to scored matching: exact names, prefix/suffix matches, longer keywords, and specific conflict cases now win over broad matches.
+- Expanded common category keywords, including `牛奶`/`酸奶` → `🥛`, `房贷`/`房贷还款` → `🏠`, `车子` → `🚗`, `车险` → `🛡️`, and `公交车` → `🚌`.
+- Unknown category names now fall back to a neutral `🏷️` icon with a deterministic color instead of a random unrelated emoji.
+- Fixed the category manager debounce race by flushing auto-match before save, so typing a name and immediately clicking save still persists the matched icon/color.
+- Made the category manager list explicitly scrollable inside a fixed-height desktop modal, and made the quick-add category grid scroll with stable labels so newly created categories are not clipped.
+- Updated `scripts/update-desktop-shortcut.ps1` for the current NSIS installer model: the desktop shortcut now prefers `%LOCALAPPDATA%\Programs\CoinFlow\CoinFlow.exe`; `release\win-unpacked\CoinFlow.exe` remains only a local validation fallback.
+- Bumped `1.1.0` → `1.1.2`. Version `1.1.1` was built during validation, then superseded by `1.1.2` after the shortcut maintenance fix.
+- Verification:
+  - `node --check` passed for `js/categories.js`, `js/category-manager.js`, and `desktop/main.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260602081050-10664`; icon matching passed, category manager auto-match passed, list scroll `maxScrollTop=195`, layout failures `0`, renderer messages `0`.
+  - Final `npm run build:desktop` produced `release\CoinFlow-Setup-1.1.2.exe`, `release\CoinFlow-Setup-1.1.2.exe.blockmap`, `release\latest.yml`, and refreshed `release\win-unpacked\`; cleanup removed stale `1.1.1` artifacts and `builder-debug.yml`.
+  - Final packaged smoke passed from `release\win-unpacked\CoinFlow.exe` with `runId=20260602081947-32784`; icon matching passed, category auto-match passed, category list scrolled, layout failures `0`, renderer messages `0`.
+  - Silent installer validation installed `1.1.2` to `%LOCALAPPDATA%\Programs\CoinFlow`; installed `app.asar` reports version `1.1.2`, `app-update.yml` points to `https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`, and the desktop shortcut target is `%LOCALAPPDATA%\Programs\CoinFlow\CoinFlow.exe`.
+  - Final installed smoke passed with `runId=20260602082109-4068`; icon matching passed, category auto-match passed, category list scrolled, layout failures `0`, renderer messages `0`.
+- Files to upload to COS Bucket root: `latest.yml`, `CoinFlow-Setup-1.1.2.exe`, `CoinFlow-Setup-1.1.2.exe.blockmap`.

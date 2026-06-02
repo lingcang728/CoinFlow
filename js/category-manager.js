@@ -17,6 +17,9 @@
   let initialized = false;
   let selectedKey = '';
   let saving = false;
+  let emojiTouched = false;
+  let colorTouched = false;
+  let nameMatchTimer = null;
 
   function init() {
     if (initialized || !modal || !form) return;
@@ -30,11 +33,51 @@
     btnDelete.addEventListener('click', deleteSelectedCategory);
     form.addEventListener('submit', saveCategory);
 
-    [emojiInput, colorInput].forEach(input => {
-      input.addEventListener('input', updatePreview);
+    emojiInput.addEventListener('input', () => {
+      // 图标被清空时视为「未自定义」,允许后续根据名称自动补全;有内容才锁定为手动。
+      emojiTouched = emojiInput.value.trim() !== '';
+      updatePreview();
     });
+    colorInput.addEventListener('input', () => {
+      colorTouched = true;
+      updatePreview();
+    });
+    nameInput.addEventListener('input', scheduleNameMatch);
 
     initialized = true;
+  }
+
+  // 仅在「新增分类」且用户尚未手动改过图标/颜色时,根据分类名称自动匹配 emoji 与配色。
+  function scheduleNameMatch() {
+    if (nameMatchTimer) clearTimeout(nameMatchTimer);
+    nameMatchTimer = setTimeout(applyNameMatch, 120);
+  }
+
+  function applyNameMatch() {
+    nameMatchTimer = null;
+    if (selectedKey) return; // 编辑已有分类时不自动改写其图标
+    if (emojiTouched && colorTouched) return;
+
+    const name = nameInput.value.trim();
+    if (!name) {
+      if (!emojiTouched) emojiInput.value = '🏷️';
+      if (!colorTouched) colorInput.value = '#F59E0B';
+      updatePreview();
+      return;
+    }
+
+    const matched = window.CoinFlowCategories.matchIcon(name);
+    if (!emojiTouched) emojiInput.value = matched.emoji;
+    if (!colorTouched) colorInput.value = matched.color;
+    updatePreview();
+  }
+
+  function flushNameMatch() {
+    if (nameMatchTimer) {
+      clearTimeout(nameMatchTimer);
+      nameMatchTimer = null;
+    }
+    applyNameMatch();
   }
 
   async function openModal() {
@@ -46,6 +89,10 @@
   }
 
   function closeModal() {
+    if (nameMatchTimer) {
+      clearTimeout(nameMatchTimer);
+      nameMatchTimer = null;
+    }
     modal.classList.remove('active');
   }
 
@@ -82,6 +129,8 @@
   async function selectCategory(key, knownUsageCount) {
     const cat = window.CoinFlowCategories.getCategory(key);
     selectedKey = key;
+    emojiTouched = true;
+    colorTouched = true;
     keyInput.value = key;
     nameInput.value = cat.name;
     emojiInput.value = cat.emoji;
@@ -99,7 +148,13 @@
   }
 
   function resetEditor() {
+    if (nameMatchTimer) {
+      clearTimeout(nameMatchTimer);
+      nameMatchTimer = null;
+    }
     selectedKey = '';
+    emojiTouched = false;
+    colorTouched = false;
     keyInput.value = '';
     nameInput.value = '';
     emojiInput.value = '🏷️';
@@ -133,6 +188,8 @@
   async function saveCategory(event) {
     event.preventDefault();
     if (saving) return;
+
+    flushNameMatch();
 
     const payload = {
       name: nameInput.value,

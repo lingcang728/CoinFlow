@@ -1,10 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
-# 绿色免安装(dir)分发：桌面快捷方式直接指向 release\win-unpacked\CoinFlow.exe，
-# 即解压即用的绿色文件夹中的可执行文件。
+# NSIS 安装版分发：正式桌面快捷方式应优先指向用户目录中的安装版。
+# release\win-unpacked\CoinFlow.exe 仅作为本地打包自测兜底，不作为正式双击入口。
 
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $ReleaseDir = Join-Path $ProjectRoot 'release'
+$InstalledPath = Join-Path $env:LOCALAPPDATA 'Programs\CoinFlow\CoinFlow.exe'
 
 if (-not (Test-Path -LiteralPath $ReleaseDir)) {
   throw "Release directory not found: $ReleaseDir"
@@ -12,17 +13,12 @@ if (-not (Test-Path -LiteralPath $ReleaseDir)) {
 
 $UnpackedPath = Join-Path $ReleaseDir 'win-unpacked\CoinFlow.exe'
 
-if (Test-Path -LiteralPath $UnpackedPath) {
+if (Test-Path -LiteralPath $InstalledPath) {
+  $TargetExe = Get-Item -LiteralPath $InstalledPath
+} elseif (Test-Path -LiteralPath $UnpackedPath) {
   $TargetExe = Get-Item -LiteralPath $UnpackedPath
 } else {
-  # 兜底：兼容历史遗留的便携 exe
-  $TargetExe = Get-ChildItem -LiteralPath $ReleaseDir -File -Filter 'CoinFlow-*-portable.exe' |
-    Sort-Object LastWriteTimeUtc -Descending |
-    Select-Object -First 1
-}
-
-if (-not $TargetExe) {
-  throw "No CoinFlow executable found in: $ReleaseDir"
+  throw "No CoinFlow executable found. Installed path: $InstalledPath; release path: $UnpackedPath"
 }
 
 $DesktopDir = [Environment]::GetFolderPath('DesktopDirectory')
@@ -36,7 +32,7 @@ $Shell = New-Object -ComObject WScript.Shell
 $Shortcut = $Shell.CreateShortcut($ShortcutPath)
 $Shortcut.TargetPath = $TargetExe.FullName
 $Shortcut.WorkingDirectory = $TargetExe.DirectoryName
-$Shortcut.Description = 'Open the latest packaged CoinFlow desktop app'
+$Shortcut.Description = 'Open the installed CoinFlow desktop app'
 
 if (Test-Path -LiteralPath $IconPath) {
   $Shortcut.IconLocation = $IconPath

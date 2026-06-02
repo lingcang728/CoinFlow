@@ -906,6 +906,38 @@ async function runSmokeTest(mainWindow) {
     `, 5000);
   }
 
+  async function verifyIconMatching() {
+    return evaluateRenderer(`
+      (() => {
+        const cases = [
+          { name: '牛奶', emoji: '🥛' },
+          { name: '酸奶', emoji: '🥛' },
+          { name: '奶茶', emoji: '🧋' },
+          { name: '房贷', emoji: '🏠' },
+          { name: '房贷还款', emoji: '🏠' },
+          { name: '车子', emoji: '🚗' },
+          { name: '车险', emoji: '🛡️' },
+          { name: '公交车', emoji: '🚌' },
+          { name: '随便写个新分类', emoji: '🏷️' }
+        ];
+        const results = cases.map(item => {
+          const matched = window.CoinFlowCategories.matchIcon(item.name);
+          return {
+            name: item.name,
+            expected: item.emoji,
+            actual: matched && matched.emoji,
+            color: matched && matched.color,
+            passed: Boolean(matched && matched.emoji === item.emoji)
+          };
+        });
+        return {
+          passed: results.every(item => item.passed),
+          results
+        };
+      })()
+    `, 5000);
+  }
+
   async function verifyCategoryManagerFlow() {
     return evaluateRenderer(`
       (async () => {
@@ -922,32 +954,45 @@ async function runSmokeTest(mainWindow) {
         document.getElementById('btn-category-settings')?.click();
         await wait(160);
         const modalOpened = document.getElementById('modal-category-settings')?.classList.contains('active') || false;
+        const listEl = document.getElementById('category-manager-list');
+        const listInitialScrollTop = listEl ? listEl.scrollTop : 0;
+        if (listEl) {
+          listEl.scrollTop = listEl.scrollHeight;
+          await wait(80);
+        }
+        const listScroll = listEl ? {
+          clientHeight: Math.round(listEl.clientHeight),
+          scrollHeight: Math.round(listEl.scrollHeight),
+          maxScrollTop: Math.round(Math.max(0, listEl.scrollHeight - listEl.clientHeight)),
+          scrolled: listEl.scrollTop > listInitialScrollTop + 2
+        } : { clientHeight: 0, scrollHeight: 0, maxScrollTop: 0, scrolled: false };
 
         const nameInput = document.getElementById('category-name-input');
         const emojiInput = document.getElementById('category-emoji-input');
         const colorInput = document.getElementById('category-color-input');
-        nameInput.value = '宠物';
-        emojiInput.value = '🐾';
-        colorInput.value = '#A855F7';
-        emojiInput.dispatchEvent(new Event('input', { bubbles: true }));
-        colorInput.dispatchEvent(new Event('input', { bubbles: true }));
+        nameInput.value = '牛奶';
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(180);
+        const autoMatchedBeforeSave = emojiInput.value === '🥛' && colorInput.value.toUpperCase() === '#60A5FA';
         document.getElementById('btn-save-category')?.click();
 
         const created = await waitUntil(() =>
-          window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '宠物')
+          window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '牛奶')
         );
-        const createdCategory = window.CoinFlowCategories.getCategoryList({ includeHidden: true }).find(cat => cat.name === '宠物');
-        const iconMatched = createdCategory && createdCategory.emoji === '🐾' && createdCategory.color.toUpperCase() === '#A855F7';
+        const createdCategory = window.CoinFlowCategories.getCategoryList({ includeHidden: true }).find(cat => cat.name === '牛奶');
+        const iconMatched = createdCategory && createdCategory.emoji === '🥛' && createdCategory.color.toUpperCase() === '#60A5FA';
 
         document.getElementById('btn-delete-category')?.click();
         const removed = await waitUntil(() =>
-          !window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '宠物')
+          !window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '牛奶')
         );
         document.getElementById('btn-close-category-modal')?.click();
         await wait(120);
 
         return {
           modalOpened,
+          listScroll,
+          autoMatchedBeforeSave,
           created,
           iconMatched,
           removed,
@@ -1026,6 +1071,8 @@ async function runSmokeTest(mainWindow) {
     result.amountDecimalKeyboardInput = await verifyAmountDecimalKeyboardInput();
     mark('quick-add-autoclose');
     result.quickAddAutoClose = await verifyQuickAddAutoClose();
+    mark('icon-matching');
+    result.iconMatching = await verifyIconMatching();
     mark('category-manager');
     result.categoryManager = await verifyCategoryManagerFlow();
 
@@ -1069,11 +1116,18 @@ async function runSmokeTest(mainWindow) {
     }
     if (!result.categoryManager ||
         !result.categoryManager.modalOpened ||
+        !result.categoryManager.listScroll ||
+        result.categoryManager.listScroll.maxScrollTop <= 2 ||
+        !result.categoryManager.listScroll.scrolled ||
+        !result.categoryManager.autoMatchedBeforeSave ||
         !result.categoryManager.created ||
         !result.categoryManager.iconMatched ||
         !result.categoryManager.removed ||
         !result.categoryManager.modalClosed) {
       throw new Error(`Category manager flow check failed: ${JSON.stringify(result.categoryManager)}`);
+    }
+    if (!result.iconMatching || !result.iconMatching.passed) {
+      throw new Error(`Icon matching check failed: ${JSON.stringify(result.iconMatching)}`);
     }
     if (!result.smokeData.saved || result.smokeData.transactionCount !== result.smokeData.seededCount) {
       throw new Error(`Smoke data check failed: ${JSON.stringify(result.smokeData)}`);
