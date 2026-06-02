@@ -111,8 +111,6 @@
         cursor: pointer;
         transition: var(--transition-smooth);
         font-weight: 600;
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
         border: 1px solid transparent;
       `;
       cell.textContent = day;

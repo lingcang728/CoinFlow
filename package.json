@@ -1,13 +1,13 @@
 {
   "name": "coinflow",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Electron-first 桌面端本地记账应用",
   "main": "desktop/main.js",
   "scripts": {
     "dev": "electron .",
     "desktop": "electron .",
     "start": "electron .",
-    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win portable",
+    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win dir",
     "postbuild:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-release-artifacts.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "shortcut:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& electron .",
@@ -43,15 +43,12 @@
       "signAndEditExecutable": false,
       "target": [
         {
-          "target": "portable",
+          "target": "dir",
           "arch": [
             "x64"
           ]
         }
       ]
-    },
-    "portable": {
-      "artifactName": "CoinFlow-${version}-portable.exe"
     }
   },
   "devDependencies": {

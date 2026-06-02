@@ -1667,3 +1667,70 @@ body {
     min-height: 60px;
   }
 }
+
+/* =====================================================================
+   性能精简模式（perf-lite）
+   由 js/perf.js 在老旧/低配设备上自动给 <html> 添加 .perf-lite。
+   关闭 backdrop-filter 毛玻璃模糊（最耗 GPU），改用不透明背景；
+   削减大阴影并缩短动画时长。各容器原本已有 0.7~0.98 不透明背景，
+   去掉模糊后观感几乎不变，但在老电脑上滚动/缩放会明显更顺滑。
+   ===================================================================== */
+html.perf-lite .desktop-sidebar,
+html.perf-lite .desktop-month-toolbar,
+html.perf-lite .month-toolbar,
+html.perf-lite .desktop-card,
+html.perf-lite .surface-card,
+html.perf-lite .glass-card,
+html.perf-lite .desktop-shell .surface-card,
+html.perf-lite .desktop-shell .glass-card,
+html.perf-lite .desktop-quick-add,
+html.perf-lite .quick-add-backdrop,
+html.perf-lite .bottom-nav,
+html.perf-lite .dropdown-menu,
+html.perf-lite .modal-overlay,
+html.perf-lite .bottom-sheet,
+html.perf-lite .desktop-modal,
+html.perf-lite .date-picker-popover,
+html.perf-lite .save-success-animation,
+html.perf-lite #save-success-toast {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 模糊关闭后用稍重的不透明底色补足层次感 */
+html.perf-lite .desktop-card,
+html.perf-lite .surface-card,
+html.perf-lite .glass-card,
+html.perf-lite .desktop-shell .surface-card,
+html.perf-lite .desktop-shell .glass-card {
+  background: #161a24 !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+html.perf-lite .desktop-sidebar {
+  background: #0d1018 !important;
+}
+
+html.perf-lite .desktop-quick-add {
+  background: #11151e !important;
+}
+
+/* 精简动画：保留可见性切换，但显著缩短时长，避免老机掉帧 */
+html.perf-lite *,
+html.perf-lite *::before,
+html.perf-lite *::after {
+  animation-duration: 0.18s !important;
+  transition-duration: 0.14s !important;
+}
+
+/* 尊重系统「减少动态效果」设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

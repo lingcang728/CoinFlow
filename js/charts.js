@@ -23,6 +23,11 @@ if (window.Chart) {
 
 const chartRegistry = new WeakMap();
 
+// 老旧/低配设备或系统「减少动态」时，关闭图表入场动画以保流畅
+function chartsLite() {
+  return Boolean(window.CoinFlowPerf && (window.CoinFlowPerf.isLite() || window.CoinFlowPerf.prefersReducedMotion()));
+}
+
 function getChart(canvas) {
   if (!canvas || !window.Chart) return null;
   return window.Chart.getChart(canvas) || chartRegistry.get(canvas) || null;
@@ -122,7 +127,7 @@ function createDoughnutChart(canvas, data, labels, colors) {
           }
         }
       },
-      animation: {
+      animation: chartsLite() ? false : {
         animateRotate: true,
         animateScale: true,
         duration: 760,
@@ -215,7 +220,7 @@ function createBarChart(canvas, data, labels, avgLineValue = 0) {
         legend: { display: false }
       },
       animation: {
-        duration: getChart(canvas) ? 0 : 650,
+        duration: (getChart(canvas) || chartsLite()) ? 0 : 650,
         easing: 'easeOutQuart'
       },
       resizeDelay: 120
@@ -293,7 +298,7 @@ function createLineChart(canvas, spentData, budgetData, labels) {
         }
       },
       animation: {
-        duration: getChart(canvas) ? 0 : 650,
+        duration: (getChart(canvas) || chartsLite()) ? 0 : 650,
         easing: 'easeInOutCubic'
       },
       resizeDelay: 120

@@ -54,6 +54,18 @@ if (IS_SMOKE_TEST) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('disable-gpu');
   app.setPath('userData', path.join(os.tmpdir(), `coinflow-smoke-profile-${process.pid}`));
+} else if (app.isPackaged) {
+  // 绿色/便携模式：将全部应用数据（含账本 IndexedDB）保存到程序所在目录下的
+  // CoinFlowData 文件夹，而不是 %APPDATA%。这样「删除整个程序文件夹」即可
+  // 彻底清除应用与全部数据，无需卸载，也不会在其他磁盘或注册表残留。
+  // PORTABLE_EXECUTABLE_DIR 由便携版自解压器注入，指向真实的程序目录；
+  // 解压即用的绿色文件夹则回退到可执行文件所在目录。
+  const baseDir = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath);
+  try {
+    app.setPath('userData', path.join(baseDir, 'CoinFlowData'));
+  } catch (error) {
+    console.error('[CoinFlow] 设置便携数据目录失败，回退到默认位置：', error);
+  }
 }
 
 protocol.registerSchemesAsPrivileged([

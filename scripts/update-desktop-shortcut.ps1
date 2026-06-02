@@ -1,31 +1,24 @@
 $ErrorActionPreference = 'Stop'
 
-$ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
-$PackageJsonPath = Join-Path $ProjectRoot 'package.json'
-$ReleaseDir = Join-Path $ProjectRoot 'release'
+# 绿色免安装(dir)分发：桌面快捷方式直接指向 release\win-unpacked\CoinFlow.exe，
+# 即解压即用的绿色文件夹中的可执行文件。
 
-if (-not (Test-Path -LiteralPath $PackageJsonPath)) {
-  throw "package.json not found: $PackageJsonPath"
-}
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
+$ReleaseDir = Join-Path $ProjectRoot 'release'
 
 if (-not (Test-Path -LiteralPath $ReleaseDir)) {
   throw "Release directory not found: $ReleaseDir"
 }
 
-$PackageJson = Get-Content -Raw -LiteralPath $PackageJsonPath | ConvertFrom-Json
-$PreferredPortablePath = Join-Path $ReleaseDir "CoinFlow-$($PackageJson.version)-portable.exe"
-$FallbackUnpackedPath = Join-Path $ReleaseDir 'win-unpacked\CoinFlow.exe'
+$UnpackedPath = Join-Path $ReleaseDir 'win-unpacked\CoinFlow.exe'
 
-if (Test-Path -LiteralPath $PreferredPortablePath) {
-  $TargetExe = Get-Item -LiteralPath $PreferredPortablePath
+if (Test-Path -LiteralPath $UnpackedPath) {
+  $TargetExe = Get-Item -LiteralPath $UnpackedPath
 } else {
+  # 兜底：兼容历史遗留的便携 exe
   $TargetExe = Get-ChildItem -LiteralPath $ReleaseDir -File -Filter 'CoinFlow-*-portable.exe' |
     Sort-Object LastWriteTimeUtc -Descending |
     Select-Object -First 1
-}
-
-if (-not $TargetExe -and (Test-Path -LiteralPath $FallbackUnpackedPath)) {
-  $TargetExe = Get-Item -LiteralPath $FallbackUnpackedPath
 }
 
 if (-not $TargetExe) {
