@@ -72,6 +72,162 @@ const excelStyles = {
   }
 };
 
+const GENERIC_IMPORT_HEADERS = {
+  date: ['日期', '消费日期', '交易时间', '记账日期', '时间'],
+  category: ['分类', '类别', '消费分类', '消费类别', '分类明细', '交易分类', '账单分类'],
+  amount: ['金额', '金额(元)', '消费金额', '消费金额(元)', '支出金额', '实付金额'],
+  note: ['备注', '说明', '商品说明', '交易对方', '商户', '账单明细', '明细', '用途'],
+  type: ['收/支', '收支', '类型', '交易类型'],
+  status: ['交易状态', '状态']
+};
+
+function normalizeHeader(value) {
+  return String(value || '')
+    .replace(/[\s\t\uFEFF]/g, '')
+    .replace(/[（(].*?[）)]/g, match => match.includes('元') ? '(元)' : '')
+    .toLowerCase();
+}
+
+function findColumn(headers, aliases) {
+  const normalizedHeaders = headers.map(normalizeHeader);
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeHeader(alias);
+    const exactIndex = normalizedHeaders.indexOf(normalizedAlias);
+    if (exactIndex !== -1) return exactIndex;
+  }
+  return -1;
+}
+
+function findGenericHeaderRow(rows) {
+  const maxScanRows = Math.min(rows.length, 30);
+  for (let i = 0; i < maxScanRows; i += 1) {
+    const row = rows[i] || [];
+    const indices = {
+      date: findColumn(row, GENERIC_IMPORT_HEADERS.date),
+      category: findColumn(row, GENERIC_IMPORT_HEADERS.category),
+      amount: findColumn(row, GENERIC_IMPORT_HEADERS.amount),
+      note: findColumn(row, GENERIC_IMPORT_HEADERS.note),
+      type: findColumn(row, GENERIC_IMPORT_HEADERS.type),
+      status: findColumn(row, GENERIC_IMPORT_HEADERS.status)
+    };
+    if (indices.date !== -1 && indices.category !== -1 && indices.amount !== -1) {
+      return { index: i, indices };
+    }
+  }
+  return null;
+}
+
+function parseAmountValue(value) {
+  if (typeof value === 'number') return Math.abs(value);
+  const text = String(value || '')
+    .replace(/[￥¥,\s]/g, '')
+    .replace(/[()（）]/g, '-')
+    .trim();
+  const match = text.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return NaN;
+  return Math.abs(parseFloat(match[0]));
+}
+
+function parseDateValue(value, XLSX) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
+
+  if (typeof value === 'number' && XLSX && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed && parsed.y && parsed.m && parsed.d) {
+      return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    }
+  }
+
+  const text = String(value || '').trim();
+  const normalized = text
+    .replace(/[年月]/g, '-')
+    .replace(/[日号]/g, '')
+    .replace(/\//g, '-')
+    .split(/\s+/)[0];
+  const match = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return '';
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function shouldSkipByTypeOrStatus(row, indices) {
+  const type = indices.type !== -1 ? String(row[indices.type] || '') : '';
+  const status = indices.status !== -1 ? String(row[indices.status] || '') : '';
+  if (type && type.includes('收入') && !type.includes('支出')) return true;
+  if (status && (status.includes('交易关闭') || status.includes('退款成功') || status.includes('退款中'))) return true;
+  return false;
+}
+
+async function saveImportedTransactions(rawTransactions) {
+  const categoryNames = rawTransactions.map(tx => tx.categoryName);
+  const { keysByName, createdCategories } = await window.CoinFlowCategories.ensureCategoryMap(categoryNames);
+  let successCount = 0;
+
+  for (const tx of rawTransactions) {
+    const normalizedName = window.CoinFlowCategories.normalizeName(tx.categoryName);
+    const categoryKey = keysByName[normalizedName] || 'shopping';
+    await window.CoinFlowDB.addTransaction({
+      amount: tx.amount,
+      category: categoryKey,
+      note: tx.note || normalizedName,
+      date: tx.date
+    });
+    successCount += 1;
+  }
+
+  return { successCount, createdCategories };
+}
+
+function extractGenericTransactionsFromRows(rows, XLSX) {
+  const header = findGenericHeaderRow(rows);
+  if (!header) return null;
+
+  const transactions = [];
+  for (let i = header.index + 1; i < rows.length; i += 1) {
+    const row = rows[i] || [];
+    if (shouldSkipByTypeOrStatus(row, header.indices)) continue;
+
+    const categoryName = window.CoinFlowCategories.normalizeName(row[header.indices.category]);
+    const amount = parseAmountValue(row[header.indices.amount]);
+    const date = parseDateValue(row[header.indices.date], XLSX);
+    if (!categoryName || !date || !Number.isFinite(amount) || amount <= 0) continue;
+
+    const note = header.indices.note !== -1 ? String(row[header.indices.note] || '').trim() : '';
+    transactions.push({ amount, categoryName, note, date });
+  }
+
+  return transactions;
+}
+
+function getReportCategoryEntries(stats) {
+  const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+  const seen = new Set(entries.map(([key]) => key));
+  Object.keys(stats.categorySpent || {}).forEach(key => {
+    if (!seen.has(key)) {
+      entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+      seen.add(key);
+    }
+  });
+  Object.keys(stats.categoryBudgets || {}).forEach(key => {
+    if (!seen.has(key)) {
+      entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+      seen.add(key);
+    }
+  });
+  return entries.filter(([key, cat]) => {
+    const spent = stats.categorySpent[key] || 0;
+    const budget = stats.categoryBudgets[key] || 0;
+    return !cat.hidden || spent > 0 || budget > 0;
+  });
+}
+
 /**
  * 导入 Excel 账单主函数
  */
@@ -94,6 +250,33 @@ function importFromExcel(file, defaultYear = 2026) {
         let totalImported = 0;
         let sheetsProcessed = 0;
         const allTransactions = [];
+        const genericTransactions = [];
+        let genericSheetsProcessed = 0;
+        let genericMatched = false;
+
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) continue;
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
+          const extracted = extractGenericTransactionsFromRows(rows, XLSX);
+          if (extracted !== null) {
+            genericMatched = true;
+            genericSheetsProcessed += 1;
+            genericTransactions.push(...extracted);
+          }
+        }
+
+        if (genericMatched) {
+          const saved = await saveImportedTransactions(genericTransactions);
+          resolve({
+            successCount: saved.successCount,
+            sheetsCount: genericSheetsProcessed,
+            importType: 'generic',
+            createdCategoryCount: saved.createdCategories.length,
+            createdCategories: saved.createdCategories
+          });
+          return;
+        }
 
         for (const sheetName of workbook.SheetNames) {
           if (!sheetName.includes('月') && isNaN(parseInt(sheetName))) {
@@ -161,7 +344,13 @@ function importFromExcel(file, defaultYear = 2026) {
           totalImported = allTransactions.length;
         }
 
-        resolve({ successCount: totalImported, sheetsCount: sheetsProcessed });
+        resolve({
+          successCount: totalImported,
+          sheetsCount: sheetsProcessed,
+          importType: 'legacy-excel',
+          createdCategoryCount: 0,
+          createdCategories: []
+        });
       } catch (err) {
         reject(err);
       }
@@ -202,6 +391,23 @@ function parseCSV(text) {
   return rows;
 }
 
+function decodeCSVBuffer(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const hasUtf8Bom = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+  const utf8Text = new TextDecoder('utf-8').decode(bytes);
+  const looksUtf8 = hasUtf8Bom || (
+    (utf8Text.match(/\uFFFD/g) || []).length === 0 &&
+    /交易时间|日期|分类|金额|CoinFlow/.test(utf8Text)
+  );
+  if (looksUtf8) return utf8Text;
+
+  try {
+    return new TextDecoder('gb18030').decode(bytes);
+  } catch (_error) {
+    return utf8Text;
+  }
+}
+
 /**
  * 从支付宝 CSV 文件导入账单
  */
@@ -210,8 +416,20 @@ function importFromCSV(file) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const text = e.target.result;
+        const text = decodeCSVBuffer(e.target.result);
         const rows = parseCSV(text);
+        const genericTransactions = extractGenericTransactionsFromRows(rows, null);
+        if (genericTransactions !== null) {
+          const saved = await saveImportedTransactions(genericTransactions);
+          resolve({
+            successCount: saved.successCount,
+            sheetsCount: 1,
+            importType: 'generic',
+            createdCategoryCount: saved.createdCategories.length,
+            createdCategories: saved.createdCategories
+          });
+          return;
+        }
         
         let headerIndex = -1;
         for (let i = 0; i < rows.length; i++) {
@@ -293,7 +511,7 @@ function importFromCSV(file) {
           allTransactions.push({
             amount: amount,
             category: matchedCategory,
-            note: note || merchant || window.CoinFlowUtils.CATEGORIES[matchedCategory].name,
+            note: note || merchant || window.CoinFlowCategories.getCategory(matchedCategory).name,
             date: date
           });
         }
@@ -306,13 +524,19 @@ function importFromCSV(file) {
           successCount = allTransactions.length;
         }
         
-        resolve({ successCount, sheetsCount: 1 });
+        resolve({
+          successCount,
+          sheetsCount: 1,
+          importType: 'alipay-csv',
+          createdCategoryCount: 0,
+          createdCategories: []
+        });
       } catch (err) {
         reject(err);
       }
     };
     reader.onerror = () => reject(new Error('CSV 读取失败'));
-    reader.readAsText(file, 'gbk');
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -354,7 +578,7 @@ async function exportToCSV(year, month) {
     csvContent += '序号,日期,分类,金额(元),备注\n';
     
     transactions.forEach((tx, idx) => {
-      const catInfo = window.CoinFlowUtils.CATEGORIES[tx.category] || { name: tx.category };
+      const catInfo = window.CoinFlowCategories.getCategory(tx.category);
       let note = tx.note || '';
       if (note.includes(',') || note.includes('\n') || note.includes('"')) {
         note = '"' + note.replace(/"/g, '""') + '"';
@@ -385,6 +609,7 @@ async function exportToExcel(year, month) {
     const stats = await window.CoinFlowDB.getMonthlyStats(year, month);
     const budgetConfig = await window.CoinFlowDB.getBudgetConfig();
     const transactions = stats.transactions;
+    const reportCategoryEntries = getReportCategoryEntries(stats);
 
     const formattedMonth = String(month).padStart(2, '0');
     const title = `CoinFlow_${year}年${formattedMonth}月账单`;
@@ -406,8 +631,7 @@ async function exportToExcel(year, month) {
     ];
 
     // 添加分类汇总数据
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    reportCategoryEntries.forEach(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       const budget = stats.categoryBudgets[key] || 0;
       const balance = budget - spent;
@@ -472,8 +696,11 @@ async function exportToExcel(year, month) {
       if (headerCell) headerCell.s = excelStyles.tableHeader;
     }
 
-    // 数据行 A9:F16 (r:8 到 r:15) 和 合计行 (r:16)
-    for (let r = 8; r <= 15; r++) {
+    const summaryDataStartRow = 8;
+    const summaryTotalRow = summaryDataStartRow + reportCategoryEntries.length;
+
+    // 数据行和合计行会随动态分类数量变化
+    for (let r = summaryDataStartRow; r < summaryTotalRow; r++) {
       for (let c = 0; c < 6; c++) {
         const cell = wsSummary[XLSX.utils.encode_cell({ r, c })];
         if (!cell) continue;
@@ -499,9 +726,9 @@ async function exportToExcel(year, month) {
       }
     }
 
-    // 合计行样式 (r:16)
+    // 合计行样式
     for (let c = 0; c < 6; c++) {
-      const cell = wsSummary[XLSX.utils.encode_cell({ r: 16, c })];
+      const cell = wsSummary[XLSX.utils.encode_cell({ r: summaryTotalRow, c })];
       if (!cell) continue;
       if (c < 2) {
         cell.s = excelStyles.totalRow;
@@ -526,14 +753,15 @@ async function exportToExcel(year, month) {
     const catGroups = {};
     
     // 初始化分组
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(k => {
+    reportCategoryEntries.forEach(([k]) => {
       catGroups[k] = [];
     });
     
     transactions.forEach(tx => {
-      if (catGroups[tx.category]) {
-        catGroups[tx.category].push(tx);
+      if (!catGroups[tx.category]) {
+        catGroups[tx.category] = [];
       }
+      catGroups[tx.category].push(tx);
     });
 
     let currentR = 0;
@@ -545,7 +773,7 @@ async function exportToExcel(year, month) {
       const txs = catGroups[key];
       if (txs.length === 0) return; // 只列出有交易的分类
       
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+      const cat = window.CoinFlowCategories.getCategory(key);
       const spent = txs.reduce((sum, item) => sum + item.amount, 0);
 
       // 分类区块头
@@ -621,7 +849,7 @@ async function exportToExcel(year, month) {
     // Sheet 3: 逐日明细
     // ----------------------------------------------------
     const detailData = transactions.map((tx, idx) => {
-      const catInfo = window.CoinFlowUtils.CATEGORIES[tx.category] || { name: tx.category };
+      const catInfo = window.CoinFlowCategories.getCategory(tx.category);
       return [
         idx + 1,
         tx.date,

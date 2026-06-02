@@ -10,6 +10,7 @@
       const stats = await window.CoinFlowDB.getMonthlyStats(year, month);
       const budgetConfig = await window.CoinFlowDB.getBudgetConfig();
       const transactions = stats.transactions;
+      const reportCategoryEntries = getReportCategoryEntries(stats);
       
       const formattedMonth = String(month).padStart(2, '0');
       const reportTitle = `${year}年${formattedMonth}月 记账月度报告`;
@@ -18,8 +19,7 @@
       // 1. 计算分类饼图的 conic-gradient
       let conicParts = [];
       let currentDeg = 0;
-      Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-        const cat = window.CoinFlowUtils.CATEGORIES[key];
+      reportCategoryEntries.forEach(([key, cat]) => {
         const spent = stats.categorySpent[key] || 0;
         if (spent > 0 && stats.totalSpent > 0) {
           const percent = spent / stats.totalSpent;
@@ -35,15 +35,14 @@
 
       // 2. 生成图例 HTML
       let legendHtml = '';
-      Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-        const cat = window.CoinFlowUtils.CATEGORIES[key];
+      reportCategoryEntries.forEach(([key, cat]) => {
         const spent = stats.categorySpent[key] || 0;
         const percent = stats.totalSpent > 0 ? ((spent / stats.totalSpent) * 100).toFixed(1) : '0.0';
         if (spent > 0) {
           legendHtml += `
             <div class="legend-item">
               <span class="legend-dot" style="background-color: ${cat.color};"></span>
-              <span class="legend-label">${cat.emoji} ${cat.name}</span>
+              <span class="legend-label">${cat.emoji} ${window.CoinFlowUtils.escapeHtml(cat.name)}</span>
               <span class="legend-value">¥${spent.toFixed(2)} (${percent}%)</span>
             </div>
           `;
@@ -55,8 +54,7 @@
 
       // 3. 生成分类预算进度条 HTML
       let progressBarsHtml = '';
-      Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-        const cat = window.CoinFlowUtils.CATEGORIES[key];
+      reportCategoryEntries.forEach(([key, cat]) => {
         const spent = stats.categorySpent[key] || 0;
         const budget = stats.categoryBudgets[key] || 0;
         const percent = budget > 0 ? Math.min((spent / budget) * 100, 100).toFixed(1) : 0;
@@ -71,7 +69,7 @@
         progressBarsHtml += `
           <div class="progress-item">
             <div class="progress-info">
-              <span class="progress-label">${cat.emoji} ${cat.name}</span>
+              <span class="progress-label">${cat.emoji} ${window.CoinFlowUtils.escapeHtml(cat.name)}</span>
               <span class="progress-values">¥${spent.toFixed(2)} / ¥${budget.toFixed(2)} (${percent}%)</span>
             </div>
             <div class="progress-bar-container">
@@ -124,11 +122,11 @@
         
         let txRowsHtml = '';
         txs.forEach(tx => {
-          const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+          const cat = window.CoinFlowCategories.getCategory(tx.category);
           txRowsHtml += `
             <div class="tx-item">
               <div class="tx-left">
-                <span class="tx-emoji bg-${cat.class}">${cat.emoji}</span>
+                <span class="tx-emoji" style="${window.CoinFlowCategories.getIconStyle(cat)}">${cat.emoji}</span>
                 <span class="tx-note">${window.CoinFlowUtils.escapeHtml(tx.note || cat.name)}</span>
               </div>
               <div class="tx-amount">-¥${tx.amount.toFixed(2)}</div>
@@ -752,6 +750,28 @@
       console.error('HTML 报告导出失败:', error);
       throw error;
     }
+  }
+
+  function getReportCategoryEntries(stats) {
+    const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+    const seen = new Set(entries.map(([key]) => key));
+    Object.keys(stats.categorySpent || {}).forEach(key => {
+      if (!seen.has(key)) {
+        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+        seen.add(key);
+      }
+    });
+    Object.keys(stats.categoryBudgets || {}).forEach(key => {
+      if (!seen.has(key)) {
+        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+        seen.add(key);
+      }
+    });
+    return entries.filter(([key, cat]) => {
+      const spent = stats.categorySpent[key] || 0;
+      const budget = stats.categoryBudgets[key] || 0;
+      return !cat.hidden || spent > 0 || budget > 0;
+    });
   }
 
   // 暴露 API

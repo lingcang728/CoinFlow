@@ -1,5 +1,5 @@
 // CoinFlow desktop shell, routing, and global month controls.
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const now = new Date();
   window.CoinFlowState = {
     currentYear: now.getFullYear(),
@@ -255,11 +255,24 @@ document.addEventListener('DOMContentLoaded', () => {
     triggerChartResize();
   });
 
+  try {
+    if (window.CoinFlowCategories && typeof window.CoinFlowCategories.init === 'function') {
+      await window.CoinFlowCategories.init();
+    }
+  } catch (error) {
+    console.error('[App] Failed to initialize categories:', error);
+    window.CoinFlowUtils.showToast('分类数据初始化失败', 'error');
+  }
+
   bindShellEvents();
   updateMonthLabel();
 
   if (window.CoinFlowBudget && typeof window.CoinFlowBudget.init === 'function') {
     window.CoinFlowBudget.init();
+  }
+
+  if (window.CoinFlowCategoryManager && typeof window.CoinFlowCategoryManager.init === 'function') {
+    window.CoinFlowCategoryManager.init();
   }
 
   if (window.CoinFlowRecordForm && typeof window.CoinFlowRecordForm.mount === 'function') {

@@ -65,6 +65,13 @@
           </svg>
           <span>设置</span>
         </button>
+        <button id="btn-category-settings" class="sidebar-utility" type="button" data-open-categories>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7.5 7.5 4H13l7 7-9 9-7-7V7.5Z"></path>
+            <circle cx="9" cy="8.5" r="1.25"></circle>
+          </svg>
+          <span>分类</span>
+        </button>
         <button class="sidebar-utility" type="button" data-target="about">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="9"></circle>
@@ -415,6 +422,46 @@
     </div>
   </div>
 
+  <div id="modal-category-settings" class="modal-overlay">
+    <div class="bottom-sheet desktop-modal category-manager-modal">
+      <div class="modal-header">
+        <h2>分类管理</h2>
+        <button id="btn-close-category-modal" class="icon-button" type="button" aria-label="关闭">×</button>
+      </div>
+
+      <div class="category-manager-layout">
+        <div id="category-manager-list" class="category-manager-list"></div>
+
+        <form id="form-category-settings" class="category-editor" autocomplete="off">
+          <input type="hidden" id="category-edit-key">
+          <div class="category-editor-preview">
+            <span id="category-editor-icon-preview" class="category-icon">🏷️</span>
+            <strong id="category-editor-title">新增分类</strong>
+          </div>
+          <div class="category-editor-grid">
+            <div class="form-group">
+              <label for="category-name-input">分类名称</label>
+              <input id="category-name-input" class="form-input" type="text" maxlength="24" required>
+            </div>
+            <div class="form-group">
+              <label for="category-emoji-input">图标</label>
+              <input id="category-emoji-input" class="form-input" type="text" maxlength="4" required>
+            </div>
+            <div class="form-group color-field">
+              <label for="category-color-input">颜色</label>
+              <input id="category-color-input" type="color" value="#F59E0B">
+            </div>
+          </div>
+          <div class="category-editor-actions">
+            <button id="btn-reset-category-editor" class="btn-secondary" type="button">新建</button>
+            <button id="btn-delete-category" class="btn-secondary danger-button" type="button">隐藏</button>
+            <button id="btn-save-category" class="btn-primary" type="submit">保存分类</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-about" class="modal-overlay">
     <div class="bottom-sheet desktop-modal about-modal">
       <div class="modal-header">
@@ -450,6 +497,7 @@
   <script src="js/runtime.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/db.js"></script>
+  <script src="js/categories.js"></script>
   <script src="js/date-picker.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/excel.js"></script>
@@ -459,6 +507,7 @@
   <script src="js/transactions.js"></script>
   <script src="js/statistics.js"></script>
   <script src="js/budget.js"></script>
+  <script src="js/category-manager.js"></script>
   <script src="js/about.js"></script>
   <script src="js/app.js"></script>
 </body>

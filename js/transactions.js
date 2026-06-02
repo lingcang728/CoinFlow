@@ -25,10 +25,7 @@
    */
   function init() {
     if (!hasBoundEvents) {
-      // 1. 动态生成筛选分类滑动标签
-      renderFilterCategories();
-
-      // 2. 绑定排序切换
+      // 1. 绑定排序切换
       btnToggleSort.onclick = toggleSort;
       if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -75,9 +72,11 @@
       document.getElementById('export-excel-item').onclick = () => { setExportDropdownOpen(false); handleExport('excel'); };
       document.getElementById('export-csv-item').onclick = () => { setExportDropdownOpen(false); handleExport('csv'); };
       document.getElementById('export-html-item').onclick = () => { setExportDropdownOpen(false); handleExport('html'); };
+      window.CoinFlowUtils.events.on('categoriesChanged', renderFilterCategories);
       hasBoundEvents = true;
     }
 
+    renderFilterCategories();
     render();
   }
 
@@ -94,15 +93,23 @@
     // 绑定全部标签点击
     allTag.onclick = () => selectCategoryFilter('all');
 
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    const visibleKeys = new Set(['all']);
+    window.CoinFlowCategories.getCategoryEntries({ includeHidden: true }).forEach(([key, cat]) => {
+      visibleKeys.add(key);
       const btn = document.createElement('button');
       btn.className = 'shortcut-tag';
       btn.style.whiteSpace = 'nowrap';
       btn.dataset.category = key;
-      btn.textContent = `${cat.emoji} ${cat.name}`;
+      btn.textContent = `${cat.emoji} ${cat.hidden ? `${cat.name} (隐藏)` : cat.name}`;
       btn.onclick = () => selectCategoryFilter(key);
       categoriesScroll.appendChild(btn);
+    });
+
+    if (!visibleKeys.has(currentCategoryFilter)) {
+      currentCategoryFilter = 'all';
+    }
+    categoriesScroll.querySelectorAll('.shortcut-tag').forEach(tag => {
+      tag.classList.toggle('active', tag.dataset.category === currentCategoryFilter);
     });
   }
 
@@ -158,13 +165,18 @@
       }
       
       window.CoinFlowUtils.triggerHaptic('success');
+      const categoryText = result.createdCategoryCount > 0 ? `，新增 ${result.createdCategoryCount} 个分类` : '';
       if (isCSV) {
-        window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条支付宝账单`, 'success');
+        const label = result.importType === 'generic' ? '账单' : '支付宝账单';
+        window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条${label}${categoryText}`, 'success');
       } else {
-        window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条账单 (${result.sheetsCount} 个月份)`, 'success');
+        window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条账单 (${result.sheetsCount} 个表)${categoryText}`, 'success');
       }
       
       inputFile.value = '';
+      if (result.createdCategoryCount > 0) {
+        window.CoinFlowUtils.events.emit('categoriesChanged');
+      }
       window.CoinFlowUtils.events.emit('dataChanged');
     } catch (err) {
       console.error('导入失败:', err);
@@ -221,7 +233,7 @@
       }
       if (searchTerm) {
         filteredTxs = filteredTxs.filter(tx => {
-          const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { name: tx.category };
+          const cat = window.CoinFlowCategories.getCategory(tx.category);
           const searchable = `${tx.note || ''} ${cat.name || ''} ${tx.date || ''}`.toLowerCase();
           return searchable.includes(searchTerm);
         });
@@ -281,12 +293,12 @@
           
           let listHtml = '';
           txs.forEach(tx => {
-            const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+            const cat = window.CoinFlowCategories.getCategory(tx.category);
             const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
             listHtml += `
               <div class="tx-item-row" data-id="${tx.id}">
                 <div class="tx-left">
-                  <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
+                  ${window.CoinFlowCategories.iconHtml(cat)}
                   <div>
                     <div class="tx-note-text">${label}</div>
                   </div>
@@ -315,12 +327,12 @@
         
         let listHtml = '';
         filteredTxs.forEach(tx => {
-          const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+          const cat = window.CoinFlowCategories.getCategory(tx.category);
           const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
           listHtml += `
             <div class="tx-item-row" data-id="${tx.id}">
               <div class="tx-left">
-                <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
+                ${window.CoinFlowCategories.iconHtml(cat)}
                 <div>
                   <div class="tx-note-text">${label}</div>
                   <div class="tx-subtitle">${tx.date}</div>
@@ -367,10 +379,10 @@
       
       // 分类选项的 HTML
       let catOptionsHtml = '';
-      Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-        const cat = window.CoinFlowUtils.CATEGORIES[key];
+      window.CoinFlowCategories.getCategoryEntries({ includeHidden: true }).forEach(([key, cat]) => {
         const selected = tx.category === key ? 'selected' : '';
-        catOptionsHtml += `<option value="${key}" ${selected}>${cat.emoji} ${cat.name}</option>`;
+        const label = cat.hidden ? `${cat.name} (隐藏)` : cat.name;
+        catOptionsHtml += `<option value="${window.CoinFlowUtils.escapeHtml(key)}" ${selected}>${cat.emoji} ${window.CoinFlowUtils.escapeHtml(label)}</option>`;
       });
 
       editModalEl.innerHTML = `

@@ -70,6 +70,10 @@
       amountInput.addEventListener('blur', normalizeAmountOnBlur);
       noteInput.addEventListener('keydown', handleNoteKeydown);
       dateInput.addEventListener('change', () => updateCategoryBudgetStatus(selectedCategory));
+      window.CoinFlowUtils.events.on('categoriesChanged', () => {
+        renderCategoryGrid();
+        selectCategory(selectedCategory);
+      });
 
       if (clearAmountBtn) {
         clearAmountBtn.addEventListener('click', () => {
@@ -88,15 +92,19 @@
 
   function renderCategoryGrid() {
     catGrid.innerHTML = '';
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach((key) => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    const entries = window.CoinFlowCategories.getCategoryEntries();
+    if (!entries.some(([key]) => key === selectedCategory)) {
+      selectedCategory = entries[0] ? entries[0][0] : 'food';
+    }
+
+    entries.forEach(([key, cat]) => {
       const btn = document.createElement('button');
       btn.className = 'cat-select-btn';
       btn.type = 'button';
       btn.dataset.category = key;
       btn.innerHTML = `
-        <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
-        <span>${cat.name}</span>
+        ${window.CoinFlowCategories.iconHtml(cat)}
+        <span>${window.CoinFlowUtils.escapeHtml(cat.name)}</span>
       `;
       btn.addEventListener('click', () => selectCategory(key));
       catGrid.appendChild(btn);
@@ -307,7 +315,8 @@
     }
 
     if (!options.keepCategory) {
-      selectedCategory = 'food';
+      const firstVisible = window.CoinFlowCategories.getCategoryEntries()[0];
+      selectedCategory = firstVisible ? firstVisible[0] : 'food';
       selectCategory(selectedCategory);
     } else {
       updateCategoryBudgetStatus(selectedCategory);

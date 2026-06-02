@@ -16,35 +16,12 @@
   let isSavingBudget = false;
   let hasInitialized = false;
 
-  // 建议分配占比默认配置
-  const SUGGESTED_RATIOS = {
-    food: 0.40,         // 饮食 40%
-    drinks: 0.10,       // 奶茶零食 10%
-    shopping: 0.15,     // 网购 15%
-    housing: 0.10,      // 宿舍 10%
-    entertainment: 0.075, // 娱乐 7.5%
-    social: 0.075,      // 社交 7.5%
-    transport: 0.05,    // 交通 5%
-    study: 0.05         // 学习 5%
-  };
-
   /**
    * 初始化弹窗
    */
   function init() {
     if (hasInitialized) return;
-    // 1. 动态在表单中渲染 8 个分类的预算输入框
-    inputsGrid.innerHTML = '';
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
-      const div = document.createElement('div');
-      div.className = 'form-group';
-      div.innerHTML = `
-        <label for="budget-cat-${key}">${cat.emoji} ${cat.name}</label>
-        <input type="number" id="budget-cat-${key}" class="form-input budget-cat-input" data-category="${key}" placeholder="0" min="0" required>
-      `;
-      inputsGrid.appendChild(div);
-    });
+    renderBudgetInputs();
 
     // 2. 绑定事件
     const budgetOpenButtons = new Set(Array.from(document.querySelectorAll('[data-open-budget]')));
@@ -61,10 +38,27 @@
     
     // 智能均分/推荐分配
     btnAuto.addEventListener('click', autoAllocate);
+    window.CoinFlowUtils.events.on('categoriesChanged', () => {
+      renderBudgetInputs();
+      updateBudgetCalculations();
+    });
 
     // 提交保存
     form.addEventListener('submit', saveBudget);
     hasInitialized = true;
+  }
+
+  function renderBudgetInputs() {
+    inputsGrid.innerHTML = '';
+    window.CoinFlowCategories.getCategoryEntries().forEach(([key, cat]) => {
+      const div = document.createElement('div');
+      div.className = 'form-group';
+      div.innerHTML = `
+        <label for="budget-cat-${key}">${cat.emoji} ${window.CoinFlowUtils.escapeHtml(cat.name)}</label>
+        <input type="number" id="budget-cat-${key}" class="form-input budget-cat-input" data-category="${key}" placeholder="0" min="0" required>
+      `;
+      inputsGrid.appendChild(div);
+    });
   }
 
   /**
@@ -76,6 +70,7 @@
 
     try {
       const config = await window.CoinFlowDB.getBudgetConfig();
+      renderBudgetInputs();
       inputIncome.value = config.monthlyIncome;
       inputSavings.value = config.savingsTarget;
 
@@ -139,17 +134,22 @@
       return;
     }
 
-    // 根据 SUGGESTED_RATIOS 乘积计算每一类的额度
-    Object.keys(SUGGESTED_RATIOS).forEach(key => {
-      const input = document.getElementById(`budget-cat-${key}`);
-      if (input) {
-        const calculated = Math.round(disposable * SUGGESTED_RATIOS[key]);
-        input.value = calculated;
-      }
+    const inputs = Array.from(document.querySelectorAll('.budget-cat-input'));
+    if (inputs.length === 0) {
+      window.CoinFlowUtils.showToast('暂无可分配分类', 'warning');
+      return;
+    }
+
+    const baseAmount = Math.floor(disposable / inputs.length);
+    let assigned = 0;
+    inputs.forEach((input, index) => {
+      const amount = index === inputs.length - 1 ? disposable - assigned : baseAmount;
+      input.value = Math.max(0, Math.round(amount));
+      assigned += amount;
     });
 
     updateBudgetCalculations();
-    window.CoinFlowUtils.showToast('已应用智能推荐分配方案', 'success');
+    window.CoinFlowUtils.showToast('已按当前分类均分预算', 'success');
   }
 
   /**

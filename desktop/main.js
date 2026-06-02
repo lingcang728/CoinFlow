@@ -389,6 +389,7 @@ async function runSmokeTest(mainWindow) {
       const ready = await evaluateRenderer(`
         Boolean(
           window.CoinFlowDB &&
+          window.CoinFlowCategories &&
           window.CoinFlowUtils &&
           window.CoinFlowRecordForm &&
           window.CoinFlowCharts &&
@@ -653,10 +654,11 @@ async function runSmokeTest(mainWindow) {
           return false;
         };
 
-        const db = await window.idb.openDB('CoinFlowDB', 1);
+        const db = await window.idb.openDB('CoinFlowDB', 2);
         await db.clear('transactions');
         await db.put('budget', budgetConfig, 'current');
         db.close();
+        await window.CoinFlowCategories.resetToDefaultCategories();
 
         window.CoinFlowState.currentYear = 2026;
         window.CoinFlowState.currentMonth = 5;
@@ -697,6 +699,16 @@ async function runSmokeTest(mainWindow) {
           await window.CoinFlowDB.addTransaction(tx);
         }
 
+        const genericCsv = [
+          '日期,分类,金额(元),备注',
+          '2026-05-23,股票,188.80,基金定投',
+          '2026-05-22,车子,260.00,停车油费',
+          '2026-05-21,房贷,1200.00,月供',
+          '2026-05-20,红包,66.00,家庭红包'
+        ].join('\\n');
+        const genericFile = new File([new Blob(['\\uFEFF' + genericCsv], { type: 'text/csv;charset=utf-8' })], 'family-generic.csv', { type: 'text/csv' });
+        const genericImport = await window.CoinFlowExcel.importFromCSV(genericFile);
+
         document.body.classList.remove('quick-add-open');
         window.navigateToPage('dashboard');
         window.CoinFlowUtils.events.emit('dataChanged');
@@ -715,7 +727,12 @@ async function runSmokeTest(mainWindow) {
         return {
           smokeNote,
           saved,
-          seededCount: seedRecords.length + 1,
+          seededCount: seedRecords.length + 1 + genericImport.successCount,
+          genericImport,
+          dynamicCategories: ['股票', '车子', '房贷', '红包'].map(name => {
+            const match = window.CoinFlowCategories.getCategoryList({ includeHidden: true }).find(cat => cat.name === name);
+            return match ? { name: match.name, emoji: match.emoji, color: match.color } : null;
+          }),
           totalSpent: stats.totalSpent,
           totalBudget: stats.totalBudget,
           transactionCount: stats.transactions.length,
@@ -889,6 +906,57 @@ async function runSmokeTest(mainWindow) {
     `, 5000);
   }
 
+  async function verifyCategoryManagerFlow() {
+    return evaluateRenderer(`
+      (async () => {
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const waitUntil = async (predicate, timeout = 5000) => {
+          const deadline = Date.now() + timeout;
+          while (Date.now() < deadline) {
+            if (await predicate()) return true;
+            await wait(80);
+          }
+          return false;
+        };
+
+        document.getElementById('btn-category-settings')?.click();
+        await wait(160);
+        const modalOpened = document.getElementById('modal-category-settings')?.classList.contains('active') || false;
+
+        const nameInput = document.getElementById('category-name-input');
+        const emojiInput = document.getElementById('category-emoji-input');
+        const colorInput = document.getElementById('category-color-input');
+        nameInput.value = '宠物';
+        emojiInput.value = '🐾';
+        colorInput.value = '#A855F7';
+        emojiInput.dispatchEvent(new Event('input', { bubbles: true }));
+        colorInput.dispatchEvent(new Event('input', { bubbles: true }));
+        document.getElementById('btn-save-category')?.click();
+
+        const created = await waitUntil(() =>
+          window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '宠物')
+        );
+        const createdCategory = window.CoinFlowCategories.getCategoryList({ includeHidden: true }).find(cat => cat.name === '宠物');
+        const iconMatched = createdCategory && createdCategory.emoji === '🐾' && createdCategory.color.toUpperCase() === '#A855F7';
+
+        document.getElementById('btn-delete-category')?.click();
+        const removed = await waitUntil(() =>
+          !window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '宠物')
+        );
+        document.getElementById('btn-close-category-modal')?.click();
+        await wait(120);
+
+        return {
+          modalOpened,
+          created,
+          iconMatched,
+          removed,
+          modalClosed: !document.getElementById('modal-category-settings')?.classList.contains('active')
+        };
+      })()
+    `, 8000);
+  }
+
   async function resizeForLayoutCheck(width, height) {
     mainWindow.show();
     mainWindow.restore();
@@ -958,6 +1026,8 @@ async function runSmokeTest(mainWindow) {
     result.amountDecimalKeyboardInput = await verifyAmountDecimalKeyboardInput();
     mark('quick-add-autoclose');
     result.quickAddAutoClose = await verifyQuickAddAutoClose();
+    mark('category-manager');
+    result.categoryManager = await verifyCategoryManagerFlow();
 
     const layoutSizes = [
       { width: 1920, height: 1080 },
@@ -997,8 +1067,22 @@ async function runSmokeTest(mainWindow) {
         result.quickAddAutoClose.currentPage !== 'statistics') {
       throw new Error(`Quick-add auto close check failed: ${JSON.stringify(result.quickAddAutoClose)}`);
     }
+    if (!result.categoryManager ||
+        !result.categoryManager.modalOpened ||
+        !result.categoryManager.created ||
+        !result.categoryManager.iconMatched ||
+        !result.categoryManager.removed ||
+        !result.categoryManager.modalClosed) {
+      throw new Error(`Category manager flow check failed: ${JSON.stringify(result.categoryManager)}`);
+    }
     if (!result.smokeData.saved || result.smokeData.transactionCount !== result.smokeData.seededCount) {
       throw new Error(`Smoke data check failed: ${JSON.stringify(result.smokeData)}`);
+    }
+    if (!result.smokeData.genericImport ||
+        result.smokeData.genericImport.successCount !== 4 ||
+        result.smokeData.genericImport.createdCategoryCount < 4 ||
+        !result.smokeData.dynamicCategories.every(Boolean)) {
+      throw new Error(`Generic import dynamic category check failed: ${JSON.stringify(result.smokeData)}`);
     }
     if (!Object.values(result.smokeData.exportResults).every(Boolean)) {
       throw new Error(`Smoke export check failed: ${JSON.stringify(result.smokeData.exportResults)}`);

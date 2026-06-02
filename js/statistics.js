@@ -205,8 +205,7 @@
     const ranks = [];
     let maxSpent = 0;
 
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach(key => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    getStatsCategoryEntries(stats).forEach(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       if (spent > 0) {
         ranks.push({ key, name: cat.name, emoji: cat.emoji, spent, color: cat.color });
@@ -236,7 +235,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-weight:700; color:var(--primary-gold); width:15px;">#${index + 1}</span>
-            <span>${item.emoji} ${item.name}</span>
+            <span>${item.emoji} ${window.CoinFlowUtils.escapeHtml(item.name)}</span>
             <span style="color:var(--text-muted); font-size:10px;">${ratio}%</span>
           </div>
           <span style="font-weight:600; color:#fff;">¥${item.spent.toFixed(2)}</span>
@@ -247,6 +246,18 @@
       `;
       rankList.appendChild(div);
     });
+  }
+
+  function getStatsCategoryEntries(stats) {
+    const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+    const seen = new Set(entries.map(([key]) => key));
+    Object.keys(stats.categorySpent || {}).forEach(key => {
+      if (!seen.has(key)) {
+        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+        seen.add(key);
+      }
+    });
+    return entries;
   }
 
   // 暴露组件 API

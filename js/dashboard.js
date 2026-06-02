@@ -43,10 +43,10 @@
         });
       }
 
-      renderLedgerFilters();
       hasBoundEvents = true;
     }
 
+    renderLedgerFilters();
     render();
   }
 
@@ -55,9 +55,9 @@
     ledgerFilterRow.innerHTML = '';
 
     const filters = [{ key: 'all', label: '全部' }].concat(
-      Object.keys(window.CoinFlowUtils.CATEGORIES).map((key) => ({
+      window.CoinFlowCategories.getCategoryEntries({ includeHidden: true }).map(([key, cat]) => ({
         key,
-        label: window.CoinFlowUtils.CATEGORIES[key].name
+        label: cat.hidden ? `${cat.name} (隐藏)` : cat.name
       }))
     );
 
@@ -192,8 +192,7 @@
     const chartData = [];
     const chartColors = [];
 
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach((key) => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    getStatsCategoryEntries(stats).forEach(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       if (spent > 0) {
         chartLabels.push(cat.name);
@@ -219,8 +218,7 @@
       return;
     }
 
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach((key) => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    getStatsCategoryEntries(stats).forEach(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       if (spent <= 0) return;
 
@@ -229,7 +227,7 @@
       legendItem.className = 'legend-row';
       legendItem.innerHTML = `
         <span class="legend-dot" style="background:${cat.color};"></span>
-        <span class="legend-name">${cat.name}</span>
+        <span class="legend-name">${window.CoinFlowUtils.escapeHtml(cat.name)}</span>
         <span class="legend-value">¥${spent.toFixed(2)}</span>
         <span class="legend-ratio">${ratio}%</span>
       `;
@@ -241,10 +239,10 @@
     if (!progressList) return;
     progressList.innerHTML = '';
 
-    Object.keys(window.CoinFlowUtils.CATEGORIES).forEach((key) => {
-      const cat = window.CoinFlowUtils.CATEGORIES[key];
+    getStatsCategoryEntries(stats).forEach(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       const budget = stats.categoryBudgets[key] || 0;
+      if (cat.hidden && spent <= 0 && budget <= 0) return;
       const percent = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0);
       const colorClass = percent > 100 ? 'danger' : percent > 85 ? 'warning' : 'success';
       const overText = percent > 100 ? `<small style="color:var(--color-danger);">超 ¥${(spent - budget).toFixed(0)}</small>` : '';
@@ -254,8 +252,8 @@
       div.innerHTML = `
         <div class="budget-progress-top">
           <div class="budget-progress-title">
-            <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
-            <span>${cat.name}</span>
+            ${window.CoinFlowCategories.iconHtml(cat)}
+            <span>${window.CoinFlowUtils.escapeHtml(cat.name)}</span>
             ${overText}
           </div>
           <div class="budget-progress-value">
@@ -288,17 +286,17 @@
     }
 
     recentTxs.forEach((tx) => {
-      const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+      const cat = window.CoinFlowCategories.getCategory(tx.category);
       const label = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
       const div = document.createElement('div');
       div.className = 'tx-row';
       div.addEventListener('click', () => window.navigateToPage('transactions'));
       div.innerHTML = `
         <div class="tx-left">
-          <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
+          ${window.CoinFlowCategories.iconHtml(cat)}
           <div>
             <div class="tx-title">${label}</div>
-            <div class="tx-subtitle">${window.CoinFlowUtils.formatFriendlyDate(tx.date)} · ${cat.name}</div>
+            <div class="tx-subtitle">${window.CoinFlowUtils.formatFriendlyDate(tx.date)} · ${window.CoinFlowUtils.escapeHtml(cat.name)}</div>
           </div>
         </div>
         <div class="tx-amount">-¥${tx.amount.toFixed(2)}</div>
@@ -368,16 +366,16 @@
     `;
 
     txs.forEach((tx) => {
-      const cat = window.CoinFlowUtils.CATEGORIES[tx.category] || { emoji: '❓', name: tx.category, class: 'food' };
+      const cat = window.CoinFlowCategories.getCategory(tx.category);
       const labelText = window.CoinFlowUtils.escapeHtml(tx.note || cat.name);
       const row = document.createElement('div');
       row.className = 'ledger-row';
       row.innerHTML = `
         <div class="ledger-left">
-          <span class="category-icon bg-${cat.class}">${cat.emoji}</span>
+          ${window.CoinFlowCategories.iconHtml(cat)}
           <div>
             <div class="ledger-title">${labelText}</div>
-            <div class="ledger-subtitle">${formatTxTime(tx.createdAt)} <span class="ledger-category">${cat.name}</span></div>
+            <div class="ledger-subtitle">${formatTxTime(tx.createdAt)} <span class="ledger-category">${window.CoinFlowUtils.escapeHtml(cat.name)}</span></div>
           </div>
         </div>
         <div class="ledger-amount">-¥${tx.amount.toFixed(2)}</div>
@@ -396,6 +394,24 @@
     const friendly = window.CoinFlowUtils.formatFriendlyDate(dateStr);
     const plain = `${date.getMonth() + 1}月${date.getDate()}日`;
     return friendly === plain ? `${month}月${day}日` : `${month}月${day}日  ${friendly}`;
+  }
+
+  function getStatsCategoryEntries(stats) {
+    const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+    const seen = new Set(entries.map(([key]) => key));
+    Object.keys(stats.categorySpent || {}).forEach(key => {
+      if (!seen.has(key)) {
+        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+        seen.add(key);
+      }
+    });
+    Object.keys(stats.categoryBudgets || {}).forEach(key => {
+      if (!seen.has(key)) {
+        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+        seen.add(key);
+      }
+    });
+    return entries;
   }
 
   function formatTxTime(createdAt) {

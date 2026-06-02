@@ -1,6 +1,6 @@
 // IndexedDB 数据管理层 - CoinFlow
 const DB_NAME = 'CoinFlowDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // 初始化数据库
 let dbPromise = null;
@@ -22,6 +22,11 @@ function getDB() {
         // 创建预算配置 store，以固定 key 作为主键
         if (!db.objectStoreNames.contains('budget')) {
           db.createObjectStore('budget');
+        }
+        if (!db.objectStoreNames.contains('categories')) {
+          const categoryStore = db.createObjectStore('categories', { keyPath: 'key' });
+          categoryStore.createIndex('name', 'name', { unique: false });
+          categoryStore.createIndex('hidden', 'hidden', { unique: false });
         }
       }
     });
@@ -62,6 +67,71 @@ async function saveBudgetConfig(config) {
   const db = await getDB();
   await db.put('budget', config, 'current');
   return config;
+}
+
+/**
+ * 获取全部分类元数据
+ */
+async function getAllCategories() {
+  const db = await getDB();
+  if (!db.objectStoreNames.contains('categories')) return [];
+  return db.getAll('categories');
+}
+
+/**
+ * 保存单个分类元数据
+ */
+async function saveCategory(category) {
+  const db = await getDB();
+  const nextCategory = {
+    ...category,
+    updatedAt: category.updatedAt || Date.now()
+  };
+  await db.put('categories', nextCategory);
+  return nextCategory;
+}
+
+/**
+ * 批量保存分类元数据
+ */
+async function saveCategories(categories) {
+  const db = await getDB();
+  const tx = db.transaction('categories', 'readwrite');
+  categories.forEach(category => {
+    tx.store.put({
+      ...category,
+      updatedAt: category.updatedAt || Date.now()
+    });
+  });
+  await tx.done;
+  return categories;
+}
+
+/**
+ * 删除未使用的分类元数据
+ */
+async function deleteCategory(key) {
+  const db = await getDB();
+  await db.delete('categories', key);
+  return true;
+}
+
+/**
+ * 清空分类元数据，主要用于 Electron smoke 的确定性数据重置
+ */
+async function clearCategories() {
+  const db = await getDB();
+  await db.clear('categories');
+  return true;
+}
+
+/**
+ * 统计某个分类被多少条账单使用
+ */
+async function countTransactionsByCategory(key) {
+  const db = await getDB();
+  const txs = await db.getAllFromIndex('transactions', 'category', key);
+  return txs.length;
 }
 
 /**
@@ -162,27 +232,23 @@ async function getMonthlyStats(year, month) {
 
   // 1. 各项求和
   let totalSpent = 0;
-  const categorySpent = {
-    food: 0,
-    drinks: 0,
-    transport: 0,
-    shopping: 0,
-    entertainment: 0,
-    housing: 0,
-    social: 0,
-    study: 0
-  };
+  const categorySpent = {};
+
+  Object.keys(budgetConfig.categoryBudgets || {}).forEach(key => {
+    categorySpent[key] = 0;
+  });
 
   transactions.forEach(tx => {
     totalSpent += tx.amount;
-    if (categorySpent[tx.category] !== undefined) {
-      categorySpent[tx.category] += tx.amount;
+    if (categorySpent[tx.category] === undefined) {
+      categorySpent[tx.category] = 0;
     }
+    categorySpent[tx.category] += tx.amount;
   });
 
   // 2. 总预算计算
   let totalCategoryBudget = 0;
-  Object.values(budgetConfig.categoryBudgets).forEach(b => {
+  Object.values(budgetConfig.categoryBudgets || {}).forEach(b => {
     totalCategoryBudget += b;
   });
 
@@ -206,6 +272,12 @@ async function getMonthlyStats(year, month) {
 window.CoinFlowDB = {
   getBudgetConfig,
   saveBudgetConfig,
+  getAllCategories,
+  saveCategory,
+  saveCategories,
+  deleteCategory,
+  clearCategories,
+  countTransactionsByCategory,
   addTransaction,
   deleteTransaction,
   getTransactionById,

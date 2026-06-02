@@ -204,3 +204,20 @@
 - Verified: `latest.yml` → version 1.0.7, relative `path`/`url` `CoinFlow-Setup-1.0.7.exe`, sha512/size match the installer; `app-update.yml` → COS base URL. Boot-checked packaged 1.0.7 (win-unpacked, not installed) → launches, 4 procs, no crash.
 - Deliberately did NOT install 1.0.7 — the machine keeps the installed 1.0.6 as the older baseline for the live 1.0.6→1.0.7 update test.
 - Update-chain status: COS endpoint reachable but `coinflow/` currently empty (HEAD returns 404 for `latest.yml` and the installer) — the owner has not uploaded yet. Full live test requires uploading 1.0.7's 3 files to COS, then clicking 关于 → 检查更新 on the installed 1.0.6. (Agent cannot upload to COS / no credentials.)
+
+## 2026-06-02 Dynamic Categories + Generic Bill Import (1.1.0)
+
+- Added a persistent IndexedDB `categories` store (`DB_VERSION=2`) and new `js/categories.js` service. Default 8 categories are still seeded, but category metadata is now durable and can be extended by imports or the new manager UI.
+- Added offline icon/color matching for imported categories: smoke verified `股票 → 📈`, `车子 → 🚗`, `房贷 → 🏠`, and `红包 → 🧧`.
+- Added generic CSV/XLSX detail import ahead of the legacy parsers. Files with date/category/amount/note-style columns now preserve their original category names and auto-create missing categories; legacy Lingcang wide Excel and Alipay keyword CSV remain as fallbacks.
+- Added a desktop category management modal from the sidebar: create, rename, adjust emoji/color, hide/restore, and delete unused custom categories. Categories already used by transactions are hidden instead of deleting history.
+- Rewired dashboard, transactions, statistics, budget settings, CSV/Excel export, and HTML report export to use dynamic category metadata and inline color styles instead of fixed `.bg-*` class assumptions.
+- Budget behavior changed for dynamic categories: new/imported categories default to budget `0`, and "智能均分剩余" now evenly allocates across current visible categories.
+- Fixed `自动更新发布指南.md` to match the current COS root publish URL in `package.json` / `agents.md`.
+- Bumped `1.0.9` → `1.1.0`.
+- Verification:
+  - `node --check` passed for `js/categories.js`, `js/category-manager.js`, `js/db.js`, `js/excel.js`, `js/app.js`, `js/add-record.js`, `js/budget.js`, `js/dashboard.js`, `js/transactions.js`, `js/statistics.js`, `js/export-html.js`, and `desktop/main.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260602071124-11604`; generic import created 4 dynamic categories, category manager create/delete flow passed, CSV/Excel/HTML exports succeeded, renderer messages were empty, statistics scroll passed, date picker and amount input regressions passed, and six layout checks from `1920x1080` to `1180x720` had no horizontal overflow.
+  - `npm run build:desktop` produced `release\CoinFlow-Setup-1.1.0.exe`, `release\CoinFlow-Setup-1.1.0.exe.blockmap`, `release\latest.yml`, and refreshed `release\win-unpacked\`; cleanup removed stale `1.0.9` artifacts and `builder-debug.yml`.
+  - Silent installer validation installed `1.1.0` to `%LOCALAPPDATA%\Programs\CoinFlow`, and installed smoke passed with `runId=20260602071323-27252`; installed `app-update.yml` points to `https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`. Validation-launched CoinFlow processes were stopped afterward.
+- Files to upload to COS Bucket root: `latest.yml`, `CoinFlow-Setup-1.1.0.exe`, `CoinFlow-Setup-1.1.0.exe.blockmap`.
