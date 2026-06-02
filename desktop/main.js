@@ -209,7 +209,7 @@ function registerIpcHandlers() {
       await autoUpdater.checkForUpdates();
       return { state: 'checking' };
     } catch (error) {
-      const message = (error && error.message) || String(error);
+      const message = describeUpdateError(error);
       sendUpdateStatus({ state: 'error', message });
       return { state: 'error', message };
     }
@@ -223,6 +223,29 @@ function registerIpcHandlers() {
     setImmediate(() => autoUpdater.quitAndInstall());
     return { ok: true };
   });
+}
+
+// 把 electron-updater 抛出的原始错误（含堆栈、COS XML、request-id）归一成
+// 一句简短、家人也看得懂的中文提示，避免把整段技术细节暴露到「关于」面板。
+function describeUpdateError(error) {
+  const statusCode = error && error.statusCode;
+  const rawMessage = (error && error.message) || String(error || '');
+
+  if (/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|getaddrinfo|network/i.test(rawMessage)) {
+    return '网络连接失败，请检查网络后重试';
+  }
+  if (statusCode === 404 || /\b404\b/.test(rawMessage)) {
+    return '暂无可用更新（服务器尚未发布新版本）';
+  }
+  if (statusCode === 403 || /\b403\b/.test(rawMessage)) {
+    return '暂时无法访问更新服务（403），请稍后重试';
+  }
+  const httpMatch = !statusCode ? rawMessage.match(/\b(4\d\d|5\d\d)\b/) : null;
+  const code = statusCode || (httpMatch && Number(httpMatch[1]));
+  if (code) {
+    return `检查更新失败（${code}），请稍后重试`;
+  }
+  return '检查更新失败，请稍后重试';
 }
 
 // 把更新状态广播给所有窗口的渲染进程
@@ -253,7 +276,7 @@ function wireAutoUpdater() {
   autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ state: 'downloaded', version: info && info.version }));
   autoUpdater.on('error', (error) => sendUpdateStatus({
     state: 'error',
-    message: (error && error.message) || String(error)
+    message: describeUpdateError(error)
   }));
 }
 

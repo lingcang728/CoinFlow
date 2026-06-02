@@ -1789,6 +1789,10 @@ html.perf-lite *::after {
   color: var(--text-secondary);
   min-height: 18px;
   line-height: 1.5;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .about-restart-btn {

@@ -15,7 +15,11 @@
   const desktop = window.coinflowDesktop;        // 仅 Electron 存在
 
   function setStatus(text) {
-    if (statusEl) statusEl.textContent = text;
+    if (!statusEl) return;
+    // 兜底：万一收到异常长的原始错误串，截断并去掉换行，避免撑爆状态栏。
+    let value = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+    if (value.length > 80) value = `${value.slice(0, 80)}…`;
+    statusEl.textContent = value;
   }
 
   function setChecking(isChecking) {
