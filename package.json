@@ -1,13 +1,13 @@
 {
   "name": "coinflow",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Electron-first 桌面端本地记账应用",
   "main": "desktop/main.js",
   "scripts": {
     "dev": "electron .",
     "desktop": "electron .",
     "start": "electron .",
-    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win dir",
+    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win nsis",
     "postbuild:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-release-artifacts.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "shortcut:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& electron .",
@@ -43,13 +43,33 @@
       "signAndEditExecutable": false,
       "target": [
         {
-          "target": "dir",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ]
-    }
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "CoinFlow-Setup-${version}.exe",
+      "shortcutName": "CoinFlow"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://REPLACE-WITH-YOUR-CDN-DOMAIN/coinflow/",
+        "channel": "latest"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "electron": "^42.3.0",

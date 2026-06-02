@@ -24,12 +24,12 @@
    - 页面切换必须处理好连续快速点击的状态一致性，防止多个页面同时处于 `.active` 状态或页面重叠。
 
 4. **每次修复后必须重新打包**：
-   - 自 V1.0.4 起，发行形态为**绿色免安装文件夹（electron-builder `dir` target）**，不再生成自解压便携 `.exe`，也不使用安装版(NSIS)。打包产物为 `release/win-unpacked/` 整套绿色文件夹，内含 `CoinFlow.exe`。
-   - 每次修复或功能开发完成后，必须运行 `npm run build:desktop` 重新打包，并确保 `release/win-unpacked/CoinFlow.exe` 能双击正常开启，用以校验成果。
-   - 每次重新打包前必须同步递增 `package.json` 与 `package-lock.json` 中的版本号（例如 `1.0.3` → `1.0.4`）。
-   - 每次重新打包后，必须立即清理旧版打包残留物；`release/` 目录中只保留当前的 `win-unpacked/` 绿色文件夹，删除历史便携 `.exe`、安装包与 `builder-debug.yml` 等调试文件，避免堆积。
-   - **数据存储为程序目录本地化（绿色软件）**：打包版（`app.isPackaged`）会把全部数据（含账本 IndexedDB）写入程序目录下的 `CoinFlowData/`（便携场景用 `PORTABLE_EXECUTABLE_DIR`，绿色文件夹用可执行文件所在目录）。因此「删除整个程序文件夹」即可彻底清除应用与全部数据，禁止改回写入 `%APPDATA%`。修改 `desktop/main.js` 中 userData 路径逻辑时需保持此约定。
-   - **分发给他人时务必使用不含 `CoinFlowData/` 的干净副本**，避免把本机账本数据一同发出。
+   - 自 V1.0.5 起，发行形态为**安装版（electron-builder `nsis` target，一键安装、`perMachine:false` 安装到用户目录），并支持自动更新（`electron-updater`）**。打包产物在 `release/` 下：`CoinFlow-Setup-<version>.exe`（安装包）、`CoinFlow-Setup-<version>.exe.blockmap`（增量更新差分）、`latest.yml`（更新清单）、`win-unpacked/`（中间产物）。
+   - 每次修复或功能开发完成后，必须运行 `npm run build:desktop` 重新打包，并确保生成的安装包能正常安装、启动，用以校验成果。
+   - 每次重新打包前必须同步递增 `package.json` 与 `package-lock.json` 中的版本号（例如 `1.0.4` → `1.0.5`）。自动更新依赖版本号比较，**版本号只能递增，不可回退或复用**。
+   - 每次重新打包后，必须立即清理旧版打包残留物；`release/` 只保留**当前版本**的 `CoinFlow-Setup-<version>.exe`、其 `.blockmap`、`latest.yml` 与 `win-unpacked/`，删除历史安装包、历史 blockmap 与 `builder-debug.yml` 等调试文件。
+   - **数据持久化（关键）**：正式安装版使用 Electron 默认 `userData`（`%APPDATA%\CoinFlow`）存放账本 IndexedDB。自动更新只替换程序文件、不触碰该目录，因此**升级后数据始终保留、无需任何手动迁移**。禁止把 `userData` 改到程序安装目录内（否则更新会丢数据）。
+   - **自动更新发布**：`package.json` 的 `build.publish`（`provider: generic`）指向「国内对象存储」的固定网址。每次发新版后，需把 `latest.yml`、`CoinFlow-Setup-<version>.exe`、`CoinFlow-Setup-<version>.exe.blockmap` 上传到该网址对应路径，家人端点击「关于 → 检查更新」即可自动下载安装。务必先在 `publish.url` 填入真实 CDN 域名再打包。
 
 ---
 
@@ -52,7 +52,8 @@ git commit -m "feat/fix: 简要描述你修改的模块和原因"
 
 ## 📅 版本迭代历史与待办 (Backlog)
 
-* **V1.0.4 (当前)**：面向老旧/低配设备的性能优化（自动「精简渲染」模式，关闭毛玻璃模糊与图表动画）；发行形态改为绿色免安装文件夹（`dir` target），数据本地化到程序目录 `CoinFlowData/`，实现「删文件夹即彻底卸载」。
+* **V1.0.5 (当前)**：发行形态改为 NSIS 一键安装版并接入自动更新（`electron-updater` + 国内对象存储 generic 源）；「关于」面板新增「检查更新」按钮，可一键下载安装并重启。数据回归 `%APPDATA%\CoinFlow`，更新永不丢失、零手动迁移。
+* **V1.0.4**：面向老旧/低配设备的性能优化（自动「精简渲染」模式，关闭毛玻璃模糊与图表动画）。曾短暂尝试绿色免安装文件夹（`dir` target）+ 程序目录数据本地化，因不便于自动更新与跨版本保留数据，于 V1.0.5 改为安装版方案。
 * **V1.0.1**：修复添加记录日期选择器切换月份后弹层误关闭的问题；从本版本开始，每次打包必须同步递增版本号并生成对应版本的 `.exe`。
 * **V1.0.0**：已完成 IndexedDB 数据持久化、数字滚动动效、Chart.js 各式图表、GitHub 月历热力图，以及适配凌苍原有账单的 Excel 拆分导入导出功能。
 * **V1.1.0 (迁移中)**：迁移为 Electron-first / desktop-only 的本地桌面记账应用，移动端 PWA 形态仅保留为遗留参考，不再作为产品目标。

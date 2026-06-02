@@ -194,7 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
       item.addEventListener('click', () => {
         const target = item.dataset.target;
         if (target === 'about') {
-          window.CoinFlowUtils.showToast('CoinFlow 本地桌面记账工具', 'info');
+          if (window.CoinFlowAbout && typeof window.CoinFlowAbout.open === 'function') {
+            window.CoinFlowAbout.open();
+          } else {
+            window.CoinFlowUtils.showToast('CoinFlow 本地桌面记账工具', 'info');
+          }
           return;
         }
         switchPage(target);

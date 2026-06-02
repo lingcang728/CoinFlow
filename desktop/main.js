@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { autoUpdater } = require('electron-updater');
 
 const APP_SCHEME = 'coinflow';
 const IS_SMOKE_TEST = process.env.COINFLOW_SMOKE_TEST === '1';
@@ -54,19 +55,10 @@ if (IS_SMOKE_TEST) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('disable-gpu');
   app.setPath('userData', path.join(os.tmpdir(), `coinflow-smoke-profile-${process.pid}`));
-} else if (app.isPackaged) {
-  // 绿色/便携模式：将全部应用数据（含账本 IndexedDB）保存到程序所在目录下的
-  // CoinFlowData 文件夹，而不是 %APPDATA%。这样「删除整个程序文件夹」即可
-  // 彻底清除应用与全部数据，无需卸载，也不会在其他磁盘或注册表残留。
-  // PORTABLE_EXECUTABLE_DIR 由便携版自解压器注入，指向真实的程序目录；
-  // 解压即用的绿色文件夹则回退到可执行文件所在目录。
-  const baseDir = process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath);
-  try {
-    app.setPath('userData', path.join(baseDir, 'CoinFlowData'));
-  } catch (error) {
-    console.error('[CoinFlow] 设置便携数据目录失败，回退到默认位置：', error);
-  }
 }
+// 正式安装版（NSIS）使用 Electron 默认的 userData 位置（%APPDATA%\CoinFlow），
+// 账本 IndexedDB 即存于此。自动更新只替换程序文件、不触碰该目录，
+// 因此升级版本后数据始终保留，无需任何手动迁移。
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -200,6 +192,69 @@ function registerIpcHandlers() {
     await fs.promises.writeFile(result.filePath, buffer);
     return { canceled: false, filePath: result.filePath };
   });
+
+  // 应用信息（版本号等），供「关于」面板显示
+  ipcMain.handle('coinflow:get-app-info', () => ({
+    version: app.getVersion(),
+    platform: process.platform,
+    isPackaged: app.isPackaged
+  }));
+
+  // 手动「检查更新」。开发态（未打包）直接返回提示，避免 electron-updater 抛错。
+  ipcMain.handle('coinflow:check-update', async () => {
+    if (!app.isPackaged) {
+      return { state: 'dev' };
+    }
+    try {
+      await autoUpdater.checkForUpdates();
+      return { state: 'checking' };
+    } catch (error) {
+      const message = (error && error.message) || String(error);
+      sendUpdateStatus({ state: 'error', message });
+      return { state: 'error', message };
+    }
+  });
+
+  // 下载完成后由渲染层触发：退出并安装新版本
+  ipcMain.handle('coinflow:quit-and-install', () => {
+    if (!app.isPackaged) {
+      return { ok: false, reason: 'dev' };
+    }
+    setImmediate(() => autoUpdater.quitAndInstall());
+    return { ok: true };
+  });
+}
+
+// 把更新状态广播给所有窗口的渲染进程
+function sendUpdateStatus(payload) {
+  BrowserWindow.getAllWindows().forEach((win) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('coinflow:update-status', payload);
+    }
+  });
+}
+
+let autoUpdaterWired = false;
+function wireAutoUpdater() {
+  if (autoUpdaterWired) return;
+  autoUpdaterWired = true;
+
+  // 检查到新版后自动下载；下载完成后等用户在「关于」面板点击重启安装。
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }));
+  autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'available', version: info && info.version }));
+  autoUpdater.on('update-not-available', (info) => sendUpdateStatus({ state: 'latest', version: info && info.version }));
+  autoUpdater.on('download-progress', (progress) => sendUpdateStatus({
+    state: 'downloading',
+    percent: Math.round((progress && progress.percent) || 0)
+  }));
+  autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ state: 'downloaded', version: info && info.version }));
+  autoUpdater.on('error', (error) => sendUpdateStatus({
+    state: 'error',
+    message: (error && error.message) || String(error)
+  }));
 }
 
 function waitForRendererLoad(mainWindow) {
@@ -982,6 +1037,9 @@ async function runSmokeTest(mainWindow) {
 app.whenReady().then(async () => {
   await registerLocalProtocol();
   registerIpcHandlers();
+  if (!IS_SMOKE_TEST) {
+    wireAutoUpdater();
+  }
   const mainWindow = createMainWindow();
 
   if (IS_SMOKE_TEST) {

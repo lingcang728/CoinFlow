@@ -415,6 +415,26 @@
     </div>
   </div>
 
+  <div id="modal-about" class="modal-overlay">
+    <div class="bottom-sheet desktop-modal about-modal">
+      <div class="modal-header">
+        <h2>关于 CoinFlow</h2>
+        <button id="btn-close-about-modal" class="icon-button" type="button" aria-label="关闭">×</button>
+      </div>
+
+      <div class="about-body">
+        <img src="favicon.png" class="about-logo" alt="CoinFlow logo">
+        <div class="about-name">CoinFlow 本地桌面记账</div>
+        <div class="about-version">版本 <strong id="about-version">—</strong></div>
+        <p class="about-desc">数据全部保存在本机，更新不会丢失账本。</p>
+
+        <button id="btn-check-update" class="btn-primary about-update-btn" type="button">检查更新</button>
+        <div id="about-update-status" class="about-update-status">点击「检查更新」获取最新版本</div>
+        <button id="btn-restart-install" class="btn-secondary about-restart-btn" type="button" hidden>立即重启并安装</button>
+      </div>
+    </div>
+  </div>
+
   <div id="save-success-toast" class="save-success-animation">
     <div class="checkmark-circle">
       <svg class="checkmark" viewBox="0 0 52 52">
@@ -439,6 +459,7 @@
   <script src="js/transactions.js"></script>
   <script src="js/statistics.js"></script>
   <script src="js/budget.js"></script>
+  <script src="js/about.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
