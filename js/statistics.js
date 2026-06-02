@@ -249,10 +249,11 @@
   }
 
   function getStatsCategoryEntries(stats) {
-    const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+    const entries = window.CoinFlowCategories.getCategoryEntries();
     const seen = new Set(entries.map(([key]) => key));
     Object.keys(stats.categorySpent || {}).forEach(key => {
-      if (!seen.has(key)) {
+      const spent = stats.categorySpent[key] || 0;
+      if (!seen.has(key) && spent > 0) {
         entries.push([key, window.CoinFlowCategories.getCategory(key)]);
         seen.add(key);
       }

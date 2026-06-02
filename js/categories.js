@@ -240,10 +240,33 @@
       emoji: cat.emoji,
       color: cat.color,
       hidden: false,
+      deleted: false,
+      deletedAt: null,
       builtIn: true,
       createdAt: now + index,
       updatedAt: now + index
     }));
+  }
+
+  function isCategoryDeleted(category) {
+    return Boolean(category && (category.deleted || category.hidden));
+  }
+
+  function normalizeCategoryRecord(category) {
+    const deleted = isCategoryDeleted(category);
+    const matched = matchIcon(category && category.name);
+    return {
+      key: String((category && category.key) || buildUniqueCustomKey(category && category.name || '分类')),
+      name: normalizeName(category && category.name) || '未知分类',
+      emoji: normalizeName((category && category.emoji) || matched.emoji).slice(0, 4) || matched.emoji,
+      color: normalizeColor(category && category.color, matched.color),
+      hidden: false,
+      deleted,
+      deletedAt: deleted ? ((category && category.deletedAt) || (category && category.updatedAt) || Date.now()) : null,
+      builtIn: Boolean(category && category.builtIn),
+      createdAt: (category && category.createdAt) || Date.now(),
+      updatedAt: (category && category.updatedAt) || Date.now()
+    };
   }
 
   function sortCategories(categories) {
@@ -266,6 +289,7 @@
       const target = window.CoinFlowUtils.CATEGORIES;
       Object.keys(target).forEach(key => delete target[key]);
       categoryList.forEach(cat => {
+        if (isCategoryDeleted(cat)) return;
         target[cat.key] = {
           ...cat,
           class: DEFAULT_ORDER.has(cat.key) ? cat.key : 'custom'
@@ -284,6 +308,18 @@
         categories = buildDefaultRecords();
         await window.CoinFlowDB.saveCategories(categories);
       } else {
+        const normalizedCategories = categories.map(normalizeCategoryRecord);
+        const needsMigration = normalizedCategories.some((cat, index) => {
+          const original = categories[index] || {};
+          return Boolean(original.hidden) ||
+            Boolean(original.deleted) !== cat.deleted ||
+            original.hidden !== false ||
+            original.deletedAt !== cat.deletedAt;
+        });
+        categories = normalizedCategories;
+        if (needsMigration) {
+          await window.CoinFlowDB.saveCategories(categories);
+        }
         categories = await backfillMissingDefaults(categories);
       }
       hydrate(categories);
@@ -310,6 +346,8 @@
       emoji: '❓',
       color: '#F59E0B',
       hidden: false,
+      deleted: false,
+      deletedAt: null,
       builtIn: false,
       createdAt: 0,
       updatedAt: 0
@@ -317,9 +355,9 @@
   }
 
   function getCategoryEntries(options = {}) {
-    const includeHidden = Boolean(options.includeHidden);
+    const includeDeleted = Boolean(options.includeDeleted || options.includeHidden);
     return categoryList
-      .filter(cat => includeHidden || !cat.hidden)
+      .filter(cat => includeDeleted || !isCategoryDeleted(cat))
       .map(cat => [cat.key, { ...cat }]);
   }
 
@@ -327,18 +365,36 @@
     return getCategoryEntries(options).map(([, cat]) => cat);
   }
 
-  function findKeyByName(name, excludeKey = '') {
+  function findKeyByName(name, excludeKey = '', options = {}) {
     const normalized = comparableName(name);
     if (!normalized) return '';
+    const includeDeleted = Boolean(options.includeDeleted);
 
-    const exact = categoryList.find(cat => cat.key !== excludeKey && comparableName(cat.name) === normalized);
+    const exact = categoryList.find(cat =>
+      cat.key !== excludeKey &&
+      comparableName(cat.name) === normalized &&
+      (includeDeleted || !isCategoryDeleted(cat))
+    );
     if (exact) return exact.key;
 
     for (const [key, aliases] of Object.entries(BUILT_IN_ALIASES)) {
       if (key === excludeKey) continue;
+      const category = categoryMap[key];
+      if (category && !includeDeleted && isCategoryDeleted(category)) continue;
       if (aliases.some(alias => comparableName(alias) === normalized)) return key;
     }
     return '';
+  }
+
+  function findDeletedKeyByName(name, excludeKey = '') {
+    const normalized = comparableName(name);
+    if (!normalized) return '';
+    const exact = categoryList.find(cat =>
+      cat.key !== excludeKey &&
+      isCategoryDeleted(cat) &&
+      comparableName(cat.name) === normalized
+    );
+    return exact ? exact.key : '';
   }
 
   function getKeywordScore(source, keyword) {
@@ -421,6 +477,8 @@
       emoji: normalizeName(overrides.emoji || matched.emoji).slice(0, 4) || matched.emoji,
       color: normalizeColor(overrides.color, matched.color),
       hidden: false,
+      deleted: false,
+      deletedAt: null,
       builtIn: false,
       createdAt: now,
       updatedAt: now
@@ -439,6 +497,12 @@
       return { key: existingKey, category: getCategory(existingKey), created: false };
     }
 
+    const deletedKey = findDeletedKeyByName(normalized);
+    if (deletedKey) {
+      const category = await restoreCategory(deletedKey);
+      return { key: deletedKey, category, created: false, restored: true };
+    }
+
     const category = buildCustomCategory(normalized);
     await window.CoinFlowDB.saveCategory(category);
     hydrate(categoryList.concat(category));
@@ -449,8 +513,10 @@
     await init();
     const keysByName = {};
     const createdCategories = [];
+    const restoredCategories = [];
     const pendingKeys = new Set();
     const pendingByComparable = new Map();
+    const restoredByKey = new Map();
 
     names.forEach(name => {
       const normalized = normalizeName(name);
@@ -461,6 +527,24 @@
       const existingKey = findKeyByName(normalized);
       if (existingKey) {
         keysByName[normalized] = existingKey;
+        return;
+      }
+
+      const deletedKey = findDeletedKeyByName(normalized);
+      if (deletedKey) {
+        const current = categoryMap[deletedKey];
+        const restored = {
+          ...current,
+          name: normalized,
+          hidden: false,
+          deleted: false,
+          deletedAt: null,
+          updatedAt: Date.now()
+        };
+        restoredByKey.set(deletedKey, restored);
+        restoredCategories.push(restored);
+        pendingByComparable.set(comparable, restored);
+        keysByName[normalized] = restored.key;
         return;
       }
 
@@ -476,12 +560,15 @@
       keysByName[normalized] = category.key;
     });
 
-    if (createdCategories.length > 0) {
-      await window.CoinFlowDB.saveCategories(createdCategories);
-      hydrate(categoryList.concat(createdCategories));
+    if (createdCategories.length > 0 || restoredCategories.length > 0) {
+      await window.CoinFlowDB.saveCategories(restoredCategories.concat(createdCategories));
+      const nextList = categoryList
+        .map(cat => restoredByKey.get(cat.key) || cat)
+        .concat(createdCategories);
+      hydrate(nextList);
     }
 
-    return { keysByName, createdCategories };
+    return { keysByName, createdCategories, restoredCategories };
   }
 
   async function createCategory(input) {
@@ -489,6 +576,12 @@
     const name = normalizeName(input && input.name);
     if (!name) throw new Error('请输入分类名称');
     if (findKeyByName(name)) throw new Error('这个分类已经存在');
+
+    const deletedKey = findDeletedKeyByName(name);
+    if (deletedKey) {
+      const category = await restoreCategory(deletedKey, input);
+      return { ...category, restored: true };
+    }
 
     const category = buildCustomCategory(name, new Set(), {
       emoji: input.emoji,
@@ -506,7 +599,7 @@
 
     const nextName = updates.name !== undefined ? normalizeName(updates.name) : current.name;
     if (!nextName) throw new Error('请输入分类名称');
-    const duplicateKey = findKeyByName(nextName, key);
+    const duplicateKey = findKeyByName(nextName, key, { includeDeleted: true });
     if (duplicateKey) throw new Error('这个分类名称已经被使用');
 
     const next = {
@@ -514,7 +607,9 @@
       name: nextName,
       emoji: normalizeName(updates.emoji || current.emoji).slice(0, 4) || current.emoji,
       color: normalizeColor(updates.color || current.color, current.color),
-      hidden: updates.hidden === undefined ? current.hidden : Boolean(updates.hidden),
+      hidden: false,
+      deleted: updates.deleted === undefined ? isCategoryDeleted(current) : Boolean(updates.deleted),
+      deletedAt: updates.deleted === false ? null : (updates.deleted === true ? Date.now() : (current.deletedAt || null)),
       builtIn: Boolean(current.builtIn),
       updatedAt: Date.now()
     };
@@ -524,32 +619,34 @@
     return { ...next };
   }
 
-  async function deleteOrHideCategory(key) {
+  async function deleteCategory(key) {
     await init();
     const category = categoryMap[key];
     if (!category) throw new Error('分类不存在');
+    if (isCategoryDeleted(category)) {
+      return { action: 'deleted', category: { ...category }, usedCount: await window.CoinFlowDB.countTransactionsByCategory(key) };
+    }
 
     const usedCount = await window.CoinFlowDB.countTransactionsByCategory(key);
-    if (category.builtIn || usedCount > 0) {
-      const visibleCount = categoryList.filter(cat => !cat.hidden).length;
-      if (!category.hidden && visibleCount <= 1) {
-        throw new Error('至少保留一个可用分类');
-      }
-      const next = await updateCategory(key, { hidden: true });
-      return { action: 'hidden', category: next, usedCount };
-    }
-
-    const visibleCount = categoryList.filter(cat => !cat.hidden).length;
-    if (!category.hidden && visibleCount <= 1) {
+    const visibleCount = categoryList.filter(cat => !isCategoryDeleted(cat)).length;
+    if (visibleCount <= 1) {
       throw new Error('至少保留一个可用分类');
     }
-    await window.CoinFlowDB.deleteCategory(key);
-    hydrate(categoryList.filter(cat => cat.key !== key));
-    return { action: 'deleted', category, usedCount };
+    const next = await updateCategory(key, { deleted: true });
+    if (window.CoinFlowDB.removeCategoryBudget) {
+      await window.CoinFlowDB.removeCategoryBudget(key);
+    }
+    return { action: 'deleted', category: next, usedCount };
   }
 
-  async function restoreCategory(key) {
-    return updateCategory(key, { hidden: false });
+  async function restoreCategory(key, input = {}) {
+    const updates = {
+      name: input.name === undefined ? undefined : input.name,
+      emoji: input.emoji,
+      color: input.color,
+      deleted: false
+    };
+    return updateCategory(key, updates);
   }
 
   async function resetToDefaultCategories() {
@@ -569,13 +666,15 @@
     getCategoryList,
     getIconStyle,
     iconHtml,
+    isCategoryDeleted,
     matchIcon,
     normalizeName,
     ensureCategoryForName,
     ensureCategoryMap,
     createCategory,
     updateCategory,
-    deleteOrHideCategory,
+    deleteCategory,
+    deleteOrHideCategory: deleteCategory,
     restoreCategory,
     resetToDefaultCategories
   };

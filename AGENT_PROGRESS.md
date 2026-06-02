@@ -239,3 +239,19 @@
   - Silent installer validation installed `1.1.2` to `%LOCALAPPDATA%\Programs\CoinFlow`; installed `app.asar` reports version `1.1.2`, `app-update.yml` points to `https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`, and the desktop shortcut target is `%LOCALAPPDATA%\Programs\CoinFlow\CoinFlow.exe`.
   - Final installed smoke passed with `runId=20260602082109-4068`; icon matching passed, category auto-match passed, category list scrolled, layout failures `0`, renderer messages `0`.
 - Files to upload to COS Bucket root: `latest.yml`, `CoinFlow-Setup-1.1.2.exe`, `CoinFlow-Setup-1.1.2.exe.blockmap`.
+
+## 2026-06-02 Category Delete + Same-Name Restore (1.1.3)
+
+- Replaced the user-facing hidden-category workflow with direct deletion for both default and custom categories. Deleted categories are removed from active category selectors, filters, budget inputs, and the category manager list.
+- Added internal deleted-category tombstones so historical transactions keep resolving their original category name/icon/color after a category is deleted. Existing `hidden` category metadata is migrated to `deleted` on category init for compatibility.
+- Added same-name recovery: creating/importing a category with the exact name of a deleted category restores the original category key, so old transactions automatically rejoin the restored category.
+- Deleting a category now removes its current budget entry, preventing empty deleted categories such as `学习` from continuing to appear only because a stale budget key exists.
+- Updated dashboard, bill-detail filters, statistics, Excel export, and HTML export so deleted categories only appear in reports when the selected period actually contains historical transactions for them.
+- Bumped `1.1.2` → `1.1.3`.
+- Verification:
+  - `node --check` passed for `js/categories.js`, `js/category-manager.js`, `js/db.js`, `js/dashboard.js`, `js/transactions.js`, `js/statistics.js`, `js/excel.js`, `js/export-html.js`, and `desktop/main.js`.
+  - Source `npm run smoke:desktop` passed with `runId=20260602085730-6724`; category manager assertions covered zero-record default deletion/restoration (`学习`), used-category deletion/restoration (`奶茶零食`), hidden filter removal, historical ledger display, dynamic import categories, exports, renderer messages `0`, and layout failures `0`.
+  - `npm run build:desktop` produced `release\CoinFlow-Setup-1.1.3.exe`, `release\CoinFlow-Setup-1.1.3.exe.blockmap`, `release\latest.yml`, and refreshed `release\win-unpacked\`; cleanup removed stale `1.1.2` artifacts and `builder-debug.yml`.
+  - Packaged smoke passed from `release\win-unpacked\CoinFlow.exe` with `runId=20260602085933-2100`; category deletion/restoration assertions passed, renderer messages `0`, layout failures `0`.
+  - Silent installer validation installed `1.1.3` to `%LOCALAPPDATA%\Programs\CoinFlow`; installed `app.asar` reports version `1.1.3`, installed `app-update.yml` points to `https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`, and installed smoke passed with `runId=20260602090120-24452`.
+- Files to upload to COS Bucket root: `latest.yml`, `CoinFlow-Setup-1.1.3.exe`, `CoinFlow-Setup-1.1.3.exe.blockmap`.

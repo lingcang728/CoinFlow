@@ -167,7 +167,7 @@ function shouldSkipByTypeOrStatus(row, indices) {
 
 async function saveImportedTransactions(rawTransactions) {
   const categoryNames = rawTransactions.map(tx => tx.categoryName);
-  const { keysByName, createdCategories } = await window.CoinFlowCategories.ensureCategoryMap(categoryNames);
+  const { keysByName, createdCategories, restoredCategories } = await window.CoinFlowCategories.ensureCategoryMap(categoryNames);
   let successCount = 0;
 
   for (const tx of rawTransactions) {
@@ -182,7 +182,7 @@ async function saveImportedTransactions(rawTransactions) {
     successCount += 1;
   }
 
-  return { successCount, createdCategories };
+  return { successCount, createdCategories, restoredCategories };
 }
 
 function extractGenericTransactionsFromRows(rows, XLSX) {
@@ -207,24 +207,26 @@ function extractGenericTransactionsFromRows(rows, XLSX) {
 }
 
 function getReportCategoryEntries(stats) {
-  const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+  const entries = window.CoinFlowCategories.getCategoryEntries();
   const seen = new Set(entries.map(([key]) => key));
   Object.keys(stats.categorySpent || {}).forEach(key => {
-    if (!seen.has(key)) {
+    const spent = stats.categorySpent[key] || 0;
+    if (!seen.has(key) && spent > 0) {
       entries.push([key, window.CoinFlowCategories.getCategory(key)]);
       seen.add(key);
     }
   });
   Object.keys(stats.categoryBudgets || {}).forEach(key => {
-    if (!seen.has(key)) {
-      entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+    const category = window.CoinFlowCategories.getCategory(key);
+    if (!seen.has(key) && !category.deleted) {
+      entries.push([key, category]);
       seen.add(key);
     }
   });
   return entries.filter(([key, cat]) => {
     const spent = stats.categorySpent[key] || 0;
     const budget = stats.categoryBudgets[key] || 0;
-    return !cat.hidden || spent > 0 || budget > 0;
+    return !cat.deleted || spent > 0 || budget > 0;
   });
 }
 
@@ -273,7 +275,9 @@ function importFromExcel(file, defaultYear = 2026) {
             sheetsCount: genericSheetsProcessed,
             importType: 'generic',
             createdCategoryCount: saved.createdCategories.length,
-            createdCategories: saved.createdCategories
+            createdCategories: saved.createdCategories,
+            restoredCategoryCount: saved.restoredCategories.length,
+            restoredCategories: saved.restoredCategories
           });
           return;
         }
@@ -349,7 +353,9 @@ function importFromExcel(file, defaultYear = 2026) {
           sheetsCount: sheetsProcessed,
           importType: 'legacy-excel',
           createdCategoryCount: 0,
-          createdCategories: []
+          createdCategories: [],
+          restoredCategoryCount: 0,
+          restoredCategories: []
         });
       } catch (err) {
         reject(err);
@@ -426,7 +432,9 @@ function importFromCSV(file) {
             sheetsCount: 1,
             importType: 'generic',
             createdCategoryCount: saved.createdCategories.length,
-            createdCategories: saved.createdCategories
+            createdCategories: saved.createdCategories,
+            restoredCategoryCount: saved.restoredCategories.length,
+            restoredCategories: saved.restoredCategories
           });
           return;
         }
@@ -529,7 +537,9 @@ function importFromCSV(file) {
           sheetsCount: 1,
           importType: 'alipay-csv',
           createdCategoryCount: 0,
-          createdCategories: []
+          createdCategories: [],
+          restoredCategoryCount: 0,
+          restoredCategories: []
         });
       } catch (err) {
         reject(err);

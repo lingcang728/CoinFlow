@@ -635,7 +635,6 @@ async function runSmokeTest(mainWindow) {
           { amount: 270, category: 'entertainment', note: '娱乐订阅', date: '2026-05-25' },
           { amount: 160, category: 'housing', note: '宿舍生活', date: '2026-05-25' },
           { amount: 80, category: 'social', note: '社交聚餐', date: '2026-05-24' },
-          { amount: 31, category: 'study', note: '学习资料', date: '2026-05-24' },
           { amount: 2789, category: 'transport', note: '预算压力测试', date: '2026-05-24' }
         ];
 
@@ -730,7 +729,7 @@ async function runSmokeTest(mainWindow) {
           seededCount: seedRecords.length + 1 + genericImport.successCount,
           genericImport,
           dynamicCategories: ['股票', '车子', '房贷', '红包'].map(name => {
-            const match = window.CoinFlowCategories.getCategoryList({ includeHidden: true }).find(cat => cat.name === name);
+            const match = window.CoinFlowCategories.getCategoryList().find(cat => cat.name === name);
             return match ? { name: match.name, emoji: match.emoji, color: match.color } : null;
           }),
           totalSpent: stats.totalSpent,
@@ -950,6 +949,20 @@ async function runSmokeTest(mainWindow) {
           }
           return false;
         };
+        const getActiveCategory = (key) => window.CoinFlowCategories.getCategoryList().find(cat => cat.key === key);
+        const clickCategoryRow = (key) => {
+          const row = document.querySelector('#category-manager-list [data-category="' + key + '"]');
+          if (!row) throw new Error('Missing category manager row: ' + key);
+          row.click();
+          return row;
+        };
+        const saveCategoryName = async (name) => {
+          const nameInput = document.getElementById('category-name-input');
+          nameInput.value = name;
+          nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+          await wait(180);
+          document.getElementById('btn-save-category')?.click();
+        };
 
         document.getElementById('btn-category-settings')?.click();
         await wait(160);
@@ -977,15 +990,58 @@ async function runSmokeTest(mainWindow) {
         document.getElementById('btn-save-category')?.click();
 
         const created = await waitUntil(() =>
-          window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '牛奶')
+          window.CoinFlowCategories.getCategoryList().some(cat => cat.name === '牛奶')
         );
-        const createdCategory = window.CoinFlowCategories.getCategoryList({ includeHidden: true }).find(cat => cat.name === '牛奶');
+        const createdCategory = window.CoinFlowCategories.getCategoryList().find(cat => cat.name === '牛奶');
         const iconMatched = createdCategory && createdCategory.emoji === '🥛' && createdCategory.color.toUpperCase() === '#60A5FA';
 
+        await wait(120);
         document.getElementById('btn-delete-category')?.click();
         const removed = await waitUntil(() =>
-          !window.CoinFlowCategories.getCategoryList({ includeHidden: true }).some(cat => cat.name === '牛奶')
+          !window.CoinFlowCategories.getCategoryList().some(cat => cat.name === '牛奶')
         );
+
+        clickCategoryRow('study');
+        await wait(120);
+        document.getElementById('btn-delete-category')?.click();
+        const defaultDeleted = await waitUntil(() => !getActiveCategory('study'));
+        const defaultTombstone = window.CoinFlowCategories.getCategory('study');
+        const defaultDeletedMetadataPreserved = Boolean(defaultTombstone && defaultTombstone.deleted && defaultTombstone.name === '学习');
+
+        document.getElementById('btn-reset-category-editor')?.click();
+        await saveCategoryName('学习');
+        const defaultRestored = await waitUntil(() => {
+          const cat = getActiveCategory('study');
+          return Boolean(cat && cat.name === '学习' && !cat.deleted);
+        });
+
+        const drinksUsedBeforeDelete = await window.CoinFlowDB.countTransactionsByCategory('drinks');
+        clickCategoryRow('drinks');
+        await wait(120);
+        document.getElementById('btn-delete-category')?.click();
+        const usedCategoryDeleted = await waitUntil(() => !getActiveCategory('drinks'));
+        const drinksTombstone = window.CoinFlowCategories.getCategory('drinks');
+        const usedCategoryMetadataPreserved = Boolean(drinksTombstone && drinksTombstone.deleted && drinksTombstone.name === '奶茶零食');
+        const drinksRecordsStillPresent = (await window.CoinFlowDB.countTransactionsByCategory('drinks')) === drinksUsedBeforeDelete && drinksUsedBeforeDelete > 0;
+
+        window.navigateToPage('transactions');
+        await wait(250);
+        const filterHasDeletedDrinks = Boolean(document.querySelector('#filter-categories-scroll [data-category="drinks"]'));
+        window.navigateToPage('dashboard');
+        await wait(250);
+        const ledgerShowsDeletedCategoryName = Array.from(document.querySelectorAll('.ledger-category'))
+          .some(el => el.textContent.trim() === '奶茶零食');
+
+        document.getElementById('btn-category-settings')?.click();
+        await wait(160);
+        document.getElementById('btn-reset-category-editor')?.click();
+        await saveCategoryName('奶茶零食');
+        const usedCategoryRestored = await waitUntil(() => {
+          const cat = getActiveCategory('drinks');
+          return Boolean(cat && cat.name === '奶茶零食' && !cat.deleted);
+        });
+        const drinksRecordsAfterRestore = await window.CoinFlowDB.countTransactionsByCategory('drinks');
+
         document.getElementById('btn-close-category-modal')?.click();
         await wait(120);
 
@@ -996,6 +1052,17 @@ async function runSmokeTest(mainWindow) {
           created,
           iconMatched,
           removed,
+          defaultDeleted,
+          defaultDeletedMetadataPreserved,
+          defaultRestored,
+          drinksUsedBeforeDelete,
+          usedCategoryDeleted,
+          usedCategoryMetadataPreserved,
+          drinksRecordsStillPresent,
+          filterHasDeletedDrinks,
+          ledgerShowsDeletedCategoryName,
+          usedCategoryRestored,
+          drinksRecordsAfterRestore,
           modalClosed: !document.getElementById('modal-category-settings')?.classList.contains('active')
         };
       })()
@@ -1123,6 +1190,16 @@ async function runSmokeTest(mainWindow) {
         !result.categoryManager.created ||
         !result.categoryManager.iconMatched ||
         !result.categoryManager.removed ||
+        !result.categoryManager.defaultDeleted ||
+        !result.categoryManager.defaultDeletedMetadataPreserved ||
+        !result.categoryManager.defaultRestored ||
+        !result.categoryManager.usedCategoryDeleted ||
+        !result.categoryManager.usedCategoryMetadataPreserved ||
+        !result.categoryManager.drinksRecordsStillPresent ||
+        result.categoryManager.filterHasDeletedDrinks ||
+        !result.categoryManager.ledgerShowsDeletedCategoryName ||
+        !result.categoryManager.usedCategoryRestored ||
+        result.categoryManager.drinksRecordsAfterRestore !== result.categoryManager.drinksUsedBeforeDelete ||
         !result.categoryManager.modalClosed) {
       throw new Error(`Category manager flow check failed: ${JSON.stringify(result.categoryManager)}`);
     }

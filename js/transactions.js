@@ -94,13 +94,13 @@
     allTag.onclick = () => selectCategoryFilter('all');
 
     const visibleKeys = new Set(['all']);
-    window.CoinFlowCategories.getCategoryEntries({ includeHidden: true }).forEach(([key, cat]) => {
+    window.CoinFlowCategories.getCategoryEntries().forEach(([key, cat]) => {
       visibleKeys.add(key);
       const btn = document.createElement('button');
       btn.className = 'shortcut-tag';
       btn.style.whiteSpace = 'nowrap';
       btn.dataset.category = key;
-      btn.textContent = `${cat.emoji} ${cat.hidden ? `${cat.name} (隐藏)` : cat.name}`;
+      btn.textContent = `${cat.emoji} ${cat.name}`;
       btn.onclick = () => selectCategoryFilter(key);
       categoriesScroll.appendChild(btn);
     });
@@ -165,7 +165,12 @@
       }
       
       window.CoinFlowUtils.triggerHaptic('success');
-      const categoryText = result.createdCategoryCount > 0 ? `，新增 ${result.createdCategoryCount} 个分类` : '';
+      const createdCount = result.createdCategoryCount || 0;
+      const restoredCount = result.restoredCategoryCount || 0;
+      const categoryTextParts = [];
+      if (createdCount > 0) categoryTextParts.push(`新增 ${createdCount} 个分类`);
+      if (restoredCount > 0) categoryTextParts.push(`恢复 ${restoredCount} 个分类`);
+      const categoryText = categoryTextParts.length > 0 ? `，${categoryTextParts.join('，')}` : '';
       if (isCSV) {
         const label = result.importType === 'generic' ? '账单' : '支付宝账单';
         window.CoinFlowUtils.showToast(`成功导入 ${result.successCount} 条${label}${categoryText}`, 'success');
@@ -174,7 +179,7 @@
       }
       
       inputFile.value = '';
-      if (result.createdCategoryCount > 0) {
+      if (createdCount > 0 || restoredCount > 0) {
         window.CoinFlowUtils.events.emit('categoriesChanged');
       }
       window.CoinFlowUtils.events.emit('dataChanged');
@@ -379,9 +384,13 @@
       
       // 分类选项的 HTML
       let catOptionsHtml = '';
-      window.CoinFlowCategories.getCategoryEntries({ includeHidden: true }).forEach(([key, cat]) => {
+      const categoryEntries = window.CoinFlowCategories.getCategoryEntries();
+      if (!categoryEntries.some(([key]) => key === tx.category)) {
+        categoryEntries.push([tx.category, window.CoinFlowCategories.getCategory(tx.category)]);
+      }
+      categoryEntries.forEach(([key, cat]) => {
         const selected = tx.category === key ? 'selected' : '';
-        const label = cat.hidden ? `${cat.name} (隐藏)` : cat.name;
+        const label = cat.deleted ? `${cat.name}（已删除）` : cat.name;
         catOptionsHtml += `<option value="${window.CoinFlowUtils.escapeHtml(key)}" ${selected}>${cat.emoji} ${window.CoinFlowUtils.escapeHtml(label)}</option>`;
       });
 

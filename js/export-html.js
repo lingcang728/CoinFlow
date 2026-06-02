@@ -753,24 +753,26 @@
   }
 
   function getReportCategoryEntries(stats) {
-    const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+    const entries = window.CoinFlowCategories.getCategoryEntries();
     const seen = new Set(entries.map(([key]) => key));
     Object.keys(stats.categorySpent || {}).forEach(key => {
-      if (!seen.has(key)) {
+      const spent = stats.categorySpent[key] || 0;
+      if (!seen.has(key) && spent > 0) {
         entries.push([key, window.CoinFlowCategories.getCategory(key)]);
         seen.add(key);
       }
     });
     Object.keys(stats.categoryBudgets || {}).forEach(key => {
-      if (!seen.has(key)) {
-        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+      const category = window.CoinFlowCategories.getCategory(key);
+      if (!seen.has(key) && !category.deleted) {
+        entries.push([key, category]);
         seen.add(key);
       }
     });
     return entries.filter(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       const budget = stats.categoryBudgets[key] || 0;
-      return !cat.hidden || spent > 0 || budget > 0;
+      return !cat.deleted || spent > 0 || budget > 0;
     });
   }
 

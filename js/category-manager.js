@@ -97,7 +97,7 @@
   }
 
   async function renderList() {
-    const categories = window.CoinFlowCategories.getCategoryList({ includeHidden: true });
+    const categories = window.CoinFlowCategories.getCategoryList();
     const usageEntries = await Promise.all(
       categories.map(async cat => [cat.key, await window.CoinFlowDB.countTransactionsByCategory(cat.key)])
     );
@@ -108,7 +108,6 @@
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'category-manager-row';
-      row.classList.toggle('is-hidden', Boolean(cat.hidden));
       row.classList.toggle('active', cat.key === selectedKey);
       row.dataset.category = cat.key;
 
@@ -117,16 +116,16 @@
         ${window.CoinFlowCategories.iconHtml(cat)}
         <span class="category-manager-main">
           <strong>${window.CoinFlowUtils.escapeHtml(cat.name)}</strong>
-          <small>${cat.builtIn ? '默认分类' : '自定义分类'} · ${usedCount} 笔${cat.hidden ? ' · 已隐藏' : ''}</small>
+          <small>${cat.builtIn ? '默认分类' : '自定义分类'} · ${usedCount} 笔</small>
         </span>
         <span class="category-manager-edit">编辑</span>
       `;
-      row.addEventListener('click', () => selectCategory(cat.key, usageMap[cat.key] || 0));
+      row.addEventListener('click', () => selectCategory(cat.key));
       listEl.appendChild(row);
     });
   }
 
-  async function selectCategory(key, knownUsageCount) {
+  async function selectCategory(key) {
     const cat = window.CoinFlowCategories.getCategory(key);
     selectedKey = key;
     emojiTouched = true;
@@ -135,13 +134,10 @@
     nameInput.value = cat.name;
     emojiInput.value = cat.emoji;
     colorInput.value = cat.color;
-    editorTitle.textContent = cat.hidden ? '编辑隐藏分类' : '编辑分类';
+    editorTitle.textContent = '编辑分类';
     btnDelete.disabled = false;
 
-    const usedCount = knownUsageCount === undefined
-      ? await window.CoinFlowDB.countTransactionsByCategory(key)
-      : knownUsageCount;
-    btnDelete.textContent = cat.hidden ? '恢复' : (!cat.builtIn && usedCount === 0 ? '删除' : '隐藏');
+    btnDelete.textContent = '删除';
 
     updatePreview();
     await renderList();
@@ -161,7 +157,7 @@
     colorInput.value = '#F59E0B';
     editorTitle.textContent = '新增分类';
     btnDelete.disabled = true;
-    btnDelete.textContent = '隐藏';
+    btnDelete.textContent = '删除';
     updatePreview();
     if (listEl) {
       listEl.querySelectorAll('.category-manager-row').forEach(row => row.classList.remove('active'));
@@ -205,7 +201,7 @@
       } else {
         const created = await window.CoinFlowCategories.createCategory(payload);
         selectedKey = created.key;
-        window.CoinFlowUtils.showToast('分类已创建', 'success');
+        window.CoinFlowUtils.showToast(created.restored ? '分类已恢复' : '分类已创建', 'success');
       }
       window.CoinFlowUtils.triggerHaptic('success');
       window.CoinFlowUtils.events.emit('categoriesChanged');
@@ -225,16 +221,13 @@
   async function deleteSelectedCategory() {
     if (!selectedKey || saving) return;
 
-    const cat = window.CoinFlowCategories.getCategory(selectedKey);
     try {
       setSaving(true);
-      if (cat.hidden) {
-        await window.CoinFlowCategories.restoreCategory(selectedKey);
-        window.CoinFlowUtils.showToast('分类已恢复', 'success');
-      } else {
-        const result = await window.CoinFlowCategories.deleteOrHideCategory(selectedKey);
-        window.CoinFlowUtils.showToast(result.action === 'deleted' ? '分类已删除' : '分类已隐藏', 'success');
-      }
+      const result = await window.CoinFlowCategories.deleteCategory(selectedKey);
+      const message = result.usedCount > 0
+        ? `分类已删除，${result.usedCount} 笔历史账单已保留`
+        : '分类已删除';
+      window.CoinFlowUtils.showToast(message, 'success');
       window.CoinFlowUtils.triggerHaptic('success');
       window.CoinFlowUtils.events.emit('categoriesChanged');
       window.CoinFlowUtils.events.emit('dataChanged');

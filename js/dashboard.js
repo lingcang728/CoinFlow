@@ -55,11 +55,15 @@
     ledgerFilterRow.innerHTML = '';
 
     const filters = [{ key: 'all', label: '全部' }].concat(
-      window.CoinFlowCategories.getCategoryEntries({ includeHidden: true }).map(([key, cat]) => ({
+      window.CoinFlowCategories.getCategoryEntries().map(([key, cat]) => ({
         key,
-        label: cat.hidden ? `${cat.name} (隐藏)` : cat.name
+        label: cat.name
       }))
     );
+
+    if (!filters.some(filter => filter.key === activeLedgerFilter)) {
+      activeLedgerFilter = 'all';
+    }
 
     filters.forEach((filter) => {
       const btn = document.createElement('button');
@@ -242,7 +246,7 @@
     getStatsCategoryEntries(stats).forEach(([key, cat]) => {
       const spent = stats.categorySpent[key] || 0;
       const budget = stats.categoryBudgets[key] || 0;
-      if (cat.hidden && spent <= 0 && budget <= 0) return;
+      if (cat.deleted && spent <= 0) return;
       const percent = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? 100 : 0);
       const colorClass = percent > 100 ? 'danger' : percent > 85 ? 'warning' : 'success';
       const overText = percent > 100 ? `<small style="color:var(--color-danger);">超 ¥${(spent - budget).toFixed(0)}</small>` : '';
@@ -397,17 +401,19 @@
   }
 
   function getStatsCategoryEntries(stats) {
-    const entries = window.CoinFlowCategories.getCategoryEntries({ includeHidden: true });
+    const entries = window.CoinFlowCategories.getCategoryEntries();
     const seen = new Set(entries.map(([key]) => key));
     Object.keys(stats.categorySpent || {}).forEach(key => {
-      if (!seen.has(key)) {
+      const spent = stats.categorySpent[key] || 0;
+      if (!seen.has(key) && spent > 0) {
         entries.push([key, window.CoinFlowCategories.getCategory(key)]);
         seen.add(key);
       }
     });
     Object.keys(stats.categoryBudgets || {}).forEach(key => {
-      if (!seen.has(key)) {
-        entries.push([key, window.CoinFlowCategories.getCategory(key)]);
+      const category = window.CoinFlowCategories.getCategory(key);
+      if (!seen.has(key) && !category.deleted) {
+        entries.push([key, category]);
         seen.add(key);
       }
     });

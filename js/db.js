@@ -70,6 +70,24 @@ async function saveBudgetConfig(config) {
 }
 
 /**
+ * 删除分类后同步移除当前预算配置里的分类预算，避免已删除分类继续出现在预算视图。
+ */
+async function removeCategoryBudget(categoryKey) {
+  const config = await getBudgetConfig();
+  if (!config.categoryBudgets || !(categoryKey in config.categoryBudgets)) {
+    return false;
+  }
+
+  const nextCategoryBudgets = { ...config.categoryBudgets };
+  delete nextCategoryBudgets[categoryKey];
+  await saveBudgetConfig({
+    ...config,
+    categoryBudgets: nextCategoryBudgets
+  });
+  return true;
+}
+
+/**
  * 获取全部分类元数据
  */
 async function getAllCategories() {
@@ -272,6 +290,7 @@ async function getMonthlyStats(year, month) {
 window.CoinFlowDB = {
   getBudgetConfig,
   saveBudgetConfig,
+  removeCategoryBudget,
   getAllCategories,
   saveCategory,
   saveCategories,
