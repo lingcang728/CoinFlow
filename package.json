@@ -1,6 +1,6 @@
 {
   "name": "coinflow",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Electron-first 桌面端本地记账应用",
   "main": "desktop/main.js",
   "scripts": {
@@ -63,7 +63,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://REPLACE-WITH-YOUR-CDN-DOMAIN/coinflow/",
+        "url": "https://coinflow-140871786.cos.ap-shanghai.myqcloud.com/coinflow/",
         "channel": "latest"
       }
     ]

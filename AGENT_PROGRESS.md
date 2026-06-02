@@ -184,3 +184,14 @@
   - `npm run build:desktop` produced `release\CoinFlow-Setup-1.0.5.exe` (~98 MB), `CoinFlow-Setup-1.0.5.exe.blockmap`, and `latest.yml` (version 1.0.5, sha512, size); postbuild left `release/` with only those three files + `win-unpacked/`. (First build attempt failed with EACCES on `win-unpacked\CoinFlow.exe` due to lingering CoinFlow processes from the earlier launch check; killed them and the rebuild succeeded.)
   - Ran the installer: installed to `%LOCALAPPDATA%\Programs\CoinFlow\CoinFlow.exe` (per-user), auto-launched (4 processes, no crash), and the existing ledger in `%APPDATA%\CoinFlow` was present → confirms data preserved with no migration.
   - Auto-update download/install path is wired but not end-to-end tested: it requires the real OSS `publish.url` and a published newer version. With the placeholder URL, "检查更新" surfaces a graceful error状态 rather than crashing.
+
+## 2026-06-02 Configure Tencent COS Auto-Update Endpoint (1.0.6)
+
+- Replaced the placeholder `build.publish[0].url` with the owner's Tencent COS bucket: `https://coinflow-140871786.cos.ap-shanghai.myqcloud.com/coinflow/` (trailing slash kept).
+- Bumped `1.0.5` → `1.0.6` (agents.md requires increment per repackage; the prior 1.0.5 build had the placeholder URL baked in, so a new number cleanly distinguishes the first COS-enabled release).
+- `npm run build:desktop` produced `release\CoinFlow-Setup-1.0.6.exe` (~98 MB) + `.blockmap` + `latest.yml`; cleanup removed the stale 1.0.5 installer/blockmap and `builder-debug.yml`.
+- Verified the update wiring:
+  - `release\win-unpacked\resources\app-update.yml` → `url: https://coinflow-140871786.cos.ap-shanghai.myqcloud.com/coinflow/` (base the updater fetches).
+  - `latest.yml`: `version: 1.0.6`, `path`/`files[].url` = `CoinFlow-Setup-1.0.6.exe` (relative); resolves against the base to `.../coinflow/CoinFlow-Setup-1.0.6.exe`. sha512/size match the built installer.
+  - Installed 1.0.6: launches (4 procs, no crash), `%APPDATA%\CoinFlow` ledger intact, and the installed `app-update.yml` points at COS.
+- Files to upload to COS `coinflow/` prefix: `latest.yml`, `CoinFlow-Setup-1.0.6.exe`, `CoinFlow-Setup-1.0.6.exe.blockmap` (only these; no source/keys/win-unpacked).
