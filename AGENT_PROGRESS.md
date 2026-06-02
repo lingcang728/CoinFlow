@@ -195,3 +195,12 @@
   - `latest.yml`: `version: 1.0.6`, `path`/`files[].url` = `CoinFlow-Setup-1.0.6.exe` (relative); resolves against the base to `.../coinflow/CoinFlow-Setup-1.0.6.exe`. sha512/size match the built installer.
   - Installed 1.0.6: launches (4 procs, no crash), `%APPDATA%\CoinFlow` ledger intact, and the installed `app-update.yml` points at COS.
 - Files to upload to COS `coinflow/` prefix: `latest.yml`, `CoinFlow-Setup-1.0.6.exe`, `CoinFlow-Setup-1.0.6.exe.blockmap` (only these; no source/keys/win-unpacked).
+
+## 2026-06-02 Sidebar Brand Centering Fix + 1.0.7 (Update-Chain Dry Run)
+
+- Fixed the dashboard sidebar brand: `.sidebar-brand` was left-aligned (default `flex-start`), making the CoinFlow logo+wordmark look off; added `justify-content: center` so the logo+text block is horizontally centered in the sidebar. Verified via a dev smoke dashboard screenshot.
+- `agents.md`: rule #4 now explicitly states uploading the 3 update files to COS is a manual step the build does NOT perform, and **the AI agent must proactively remind 凌苍 to upload them (with the concrete filenames) after every successful build**. Saved matching long-term memory so the reminder persists across sessions.
+- Bumped `1.0.6` → `1.0.7`; `npm run build:desktop` produced `release\CoinFlow-Setup-1.0.7.exe` (~98 MB) + `.blockmap` + `latest.yml`; cleanup removed the stale 1.0.6 artifacts.
+- Verified: `latest.yml` → version 1.0.7, relative `path`/`url` `CoinFlow-Setup-1.0.7.exe`, sha512/size match the installer; `app-update.yml` → COS base URL. Boot-checked packaged 1.0.7 (win-unpacked, not installed) → launches, 4 procs, no crash.
+- Deliberately did NOT install 1.0.7 — the machine keeps the installed 1.0.6 as the older baseline for the live 1.0.6→1.0.7 update test.
+- Update-chain status: COS endpoint reachable but `coinflow/` currently empty (HEAD returns 404 for `latest.yml` and the installer) — the owner has not uploaded yet. Full live test requires uploading 1.0.7's 3 files to COS, then clicking 关于 → 检查更新 on the installed 1.0.6. (Agent cannot upload to COS / no credentials.)

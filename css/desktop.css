@@ -73,6 +73,7 @@ body {
 .sidebar-brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   height: 42px;
   padding: 0 12px;

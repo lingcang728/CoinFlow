@@ -29,7 +29,12 @@
    - 每次重新打包前必须同步递增 `package.json` 与 `package-lock.json` 中的版本号（例如 `1.0.4` → `1.0.5`）。自动更新依赖版本号比较，**版本号只能递增，不可回退或复用**。
    - 每次重新打包后，必须立即清理旧版打包残留物；`release/` 只保留**当前版本**的 `CoinFlow-Setup-<version>.exe`、其 `.blockmap`、`latest.yml` 与 `win-unpacked/`，删除历史安装包、历史 blockmap 与 `builder-debug.yml` 等调试文件。
    - **数据持久化（关键）**：正式安装版使用 Electron 默认 `userData`（`%APPDATA%\CoinFlow`）存放账本 IndexedDB。自动更新只替换程序文件、不触碰该目录，因此**升级后数据始终保留、无需任何手动迁移**。禁止把 `userData` 改到程序安装目录内（否则更新会丢数据）。
-   - **自动更新发布**：`package.json` 的 `build.publish`（`provider: generic`）指向「国内对象存储」的固定网址。每次发新版后，需把 `latest.yml`、`CoinFlow-Setup-<version>.exe`、`CoinFlow-Setup-<version>.exe.blockmap` 上传到该网址对应路径，家人端点击「关于 → 检查更新」即可自动下载安装。务必先在 `publish.url` 填入真实 CDN 域名再打包。
+   - **自动更新发布**：`package.json` 的 `build.publish`（`provider: generic`）指向「国内对象存储」的固定网址（当前为腾讯云 COS：`https://coinflow-140871786.cos.ap-shanghai.myqcloud.com/coinflow/`）。家人端点击「关于 → 检查更新」即可自动下载安装。
+   - 🔔 **每次打包后必须手动上传 3 个文件到 COS 的 `coinflow/` 路径（缺一不可）**：
+     1. `latest.yml`（**必须覆盖上传**，否则检测不到新版本）
+     2. `CoinFlow-Setup-<version>.exe`（安装包）
+     3. `CoinFlow-Setup-<version>.exe.blockmap`（增量更新差分）
+     上传是**手动步骤**，打包命令不会自动完成。**AI 代理在每次成功打包后，必须主动提醒凌苍去 COS 上传这 3 个文件，并列出本次的具体文件名**；不要默认已上传。详见根目录《自动更新发布指南.md》。
 
 ---
 
