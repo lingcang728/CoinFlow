@@ -109,7 +109,7 @@ function createMainWindow() {
     title: 'CoinFlow',
     backgroundColor: '#0a0a0f',
     autoHideMenuBar: true,
-    icon: path.join(app.getAppPath(), 'assets', 'icons', 'icon-512.png'),
+    icon: path.join(app.getAppPath(), 'assets', 'icons', 'icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
