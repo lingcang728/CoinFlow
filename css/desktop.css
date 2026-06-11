@@ -1959,3 +1959,88 @@ html.perf-lite *::after {
 .danger-button:disabled {
   opacity: 0.45 !important;
 }
+
+/* ===== 顶栏年月选择器（点击月份标签呼出） ===== */
+.month-toolbar.has-month-picker {
+  position: relative;
+}
+
+.month-display {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 2px 8px;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.month-display:hover,
+.month-display.is-open {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.month-picker-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 600;
+  width: 252px;
+  padding: 12px;
+  background: rgba(22, 24, 34, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+html.perf-lite .month-picker-popover {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: #16181f;
+}
+
+.month-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.month-picker-year {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.4px;
+}
+
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.month-picker-cell {
+  padding: 8px 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.month-picker-cell:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.month-picker-cell.is-now {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.month-picker-cell.selected {
+  background: var(--primary-gradient);
+  color: #1a1304;
+  font-weight: 600;
+}

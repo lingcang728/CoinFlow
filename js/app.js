@@ -124,6 +124,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return true;
   }
 
+  function setMonth(year, month) {
+    window.CoinFlowState.currentYear = year;
+    window.CoinFlowState.currentMonth = month;
+    updateMonthLabel();
+    triggerPageInit(currentPageId);
+    updateTopbarMetrics();
+    triggerChartResize();
+    renderMonthPicker();
+  }
+
   function changeMonth(direction) {
     let month = window.CoinFlowState.currentMonth + direction;
     let year = window.CoinFlowState.currentYear;
@@ -136,12 +146,92 @@ document.addEventListener('DOMContentLoaded', async () => {
       year += 1;
     }
 
-    window.CoinFlowState.currentYear = year;
-    window.CoinFlowState.currentMonth = month;
-    updateMonthLabel();
-    triggerPageInit(currentPageId);
-    updateTopbarMetrics();
-    triggerChartResize();
+    setMonth(year, month);
+  }
+
+  // ===== 顶栏年月选择器：点击月份标签直接跳转任意年月 =====
+  let monthPickerEl = null;
+  let monthPickerYear = 0;
+
+  function buildMonthPicker() {
+    if (monthPickerEl) return monthPickerEl;
+    const toolbar = monthDisplay ? monthDisplay.closest('.month-toolbar') : null;
+    if (!toolbar) return null;
+    toolbar.classList.add('has-month-picker');
+
+    monthPickerEl = document.createElement('div');
+    monthPickerEl.className = 'month-picker-popover';
+    monthPickerEl.hidden = true;
+    monthPickerEl.innerHTML = `
+      <div class="month-picker-header">
+        <button type="button" class="icon-button month-picker-year-nav" data-year-step="-1" aria-label="上一年">‹</button>
+        <span class="month-picker-year"></span>
+        <button type="button" class="icon-button month-picker-year-nav" data-year-step="1" aria-label="下一年">›</button>
+      </div>
+      <div class="month-picker-grid"></div>
+    `;
+
+    const grid = monthPickerEl.querySelector('.month-picker-grid');
+    for (let m = 1; m <= 12; m++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'month-picker-cell';
+      btn.dataset.month = String(m);
+      btn.textContent = `${m}月`;
+      btn.addEventListener('click', () => {
+        setMonth(monthPickerYear, m);
+        closeMonthPicker();
+      });
+      grid.appendChild(btn);
+    }
+
+    monthPickerEl.querySelectorAll('.month-picker-year-nav').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        monthPickerYear += Number(btn.dataset.yearStep);
+        renderMonthPicker();
+      });
+    });
+
+    toolbar.appendChild(monthPickerEl);
+    return monthPickerEl;
+  }
+
+  function renderMonthPicker() {
+    if (!monthPickerEl || monthPickerEl.hidden) return;
+    const now = new Date();
+    monthPickerEl.querySelector('.month-picker-year').textContent = `${monthPickerYear}年`;
+    monthPickerEl.querySelectorAll('.month-picker-cell').forEach((btn) => {
+      const m = Number(btn.dataset.month);
+      btn.classList.toggle('selected',
+        monthPickerYear === window.CoinFlowState.currentYear && m === window.CoinFlowState.currentMonth);
+      btn.classList.toggle('is-now',
+        monthPickerYear === now.getFullYear() && m === now.getMonth() + 1);
+    });
+  }
+
+  function openMonthPicker() {
+    const el = buildMonthPicker();
+    if (!el) return;
+    monthPickerYear = window.CoinFlowState.currentYear;
+    el.hidden = false;
+    renderMonthPicker();
+    if (monthDisplay) monthDisplay.classList.add('is-open');
+  }
+
+  function closeMonthPicker() {
+    if (monthPickerEl && !monthPickerEl.hidden) {
+      monthPickerEl.hidden = true;
+    }
+    if (monthDisplay) monthDisplay.classList.remove('is-open');
+  }
+
+  function toggleMonthPicker() {
+    if (monthPickerEl && !monthPickerEl.hidden) {
+      closeMonthPicker();
+    } else {
+      openMonthPicker();
+    }
   }
 
   function openQuickAddPanel() {
@@ -169,14 +259,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  let resizeThrottleTimer = 0;
   function scheduleLayoutResize() {
-    if (resizeFrame) {
-      cancelAnimationFrame(resizeFrame);
-    }
-    resizeFrame = requestAnimationFrame(() => {
-      resizeFrame = 0;
-      triggerChartResize();
-    });
+    // 100ms 节流：ResizeObserver 观察了多组容器，避免连环回调触发图表 resize 风暴
+    if (resizeThrottleTimer) return;
+    resizeThrottleTimer = window.setTimeout(() => {
+      resizeThrottleTimer = 0;
+      if (resizeFrame) {
+        cancelAnimationFrame(resizeFrame);
+      }
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = 0;
+        triggerChartResize();
+      });
+    }, 100);
   }
 
   function focusQuickAddAmount() {
@@ -207,7 +303,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
+        closeMonthPicker();
         closeQuickAddPanel();
+        return;
+      }
+      // Ctrl+N：随时呼出「快速记一笔」
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey &&
+          (event.key === 'n' || event.key === 'N')) {
+        event.preventDefault();
+        openQuickAddPanel();
       }
     });
 
@@ -221,6 +325,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (nextMonthBtn) {
       nextMonthBtn.addEventListener('click', () => changeMonth(1));
     }
+
+    if (monthDisplay) {
+      monthDisplay.setAttribute('role', 'button');
+      monthDisplay.setAttribute('tabindex', '0');
+      monthDisplay.title = '点击选择年月';
+      monthDisplay.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleMonthPicker();
+      });
+      monthDisplay.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleMonthPicker();
+        }
+      });
+    }
+
+    document.addEventListener('click', (event) => {
+      if (!monthPickerEl || monthPickerEl.hidden) return;
+      if (monthPickerEl.contains(event.target)) return;
+      if (monthDisplay && monthDisplay.contains(event.target)) return;
+      closeMonthPicker();
+    });
 
     window.addEventListener('resize', scheduleLayoutResize);
 

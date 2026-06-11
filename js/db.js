@@ -264,13 +264,7 @@ async function getMonthlyStats(year, month) {
     categorySpent[tx.category] += tx.amount;
   });
 
-  // 2. 总预算计算
-  let totalCategoryBudget = 0;
-  Object.values(budgetConfig.categoryBudgets || {}).forEach(b => {
-    totalCategoryBudget += b;
-  });
-
-  // 总预算由月收入减去储蓄目标决定，如无此项则为各子分类之和
+  // 2. 总预算由月收入减去储蓄目标决定
   const totalBudget = budgetConfig.monthlyIncome - budgetConfig.savingsTarget;
 
   return {

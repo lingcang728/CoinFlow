@@ -98,6 +98,7 @@ class EventBus {
 const coinFlowEvents = new EventBus();
 
 // 自定义轻量 Toast 提示
+let toastHideTimer = null;
 function showToast(message, type = 'info') {
   let toast = document.getElementById('coinflow-toast');
   if (!toast) {
@@ -145,7 +146,12 @@ function showToast(message, type = 'info') {
   toast.style.opacity = '1';
   toast.style.transform = 'translateX(-50%) translateY(0)';
 
-  setTimeout(() => {
+  // 连续弹出时取消上一条的隐藏定时器，避免新提示被提前藏掉
+  if (toastHideTimer) {
+    clearTimeout(toastHideTimer);
+  }
+  toastHideTimer = setTimeout(() => {
+    toastHideTimer = null;
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(-50%) translateY(20px)';
   }, 2500);
