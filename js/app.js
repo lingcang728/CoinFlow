@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const quickAddPanel = document.querySelector('.desktop-quick-add');
   const quickAddBackdrop = document.querySelector('.quick-add-backdrop');
   let resizeFrame = 0;
+  let refreshFrame = 0;
   let layoutObserver = null;
 
   function formatMonthLabel() {
@@ -58,7 +59,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function triggerChartResize() {
-    requestAnimationFrame(() => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
       if (window.CoinFlowCharts && typeof window.CoinFlowCharts.resizeAll === 'function') {
         window.CoinFlowCharts.resizeAll();
       }
@@ -128,10 +131,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.CoinFlowState.currentYear = year;
     window.CoinFlowState.currentMonth = month;
     updateMonthLabel();
+    refreshCurrentPageNow();
+    renderMonthPicker();
+  }
+
+  function refreshCurrentPageNow() {
     triggerPageInit(currentPageId);
     updateTopbarMetrics();
     triggerChartResize();
-    renderMonthPicker();
+  }
+
+  function scheduleCurrentPageRefresh() {
+    if (refreshFrame) return;
+    refreshFrame = requestAnimationFrame(() => {
+      refreshFrame = 0;
+      refreshCurrentPageNow();
+    });
   }
 
   function changeMonth(direction) {
@@ -381,15 +396,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.closeQuickAdd = closeQuickAddPanel;
   window.focusQuickAdd = focusQuickAddAmount;
   window.refreshCurrentPage = function() {
-    triggerPageInit(currentPageId);
-    updateTopbarMetrics();
-    triggerChartResize();
+    scheduleCurrentPageRefresh();
   };
 
   window.CoinFlowUtils.events.on('dataChanged', () => {
-    triggerPageInit(currentPageId);
-    updateTopbarMetrics();
-    triggerChartResize();
+    scheduleCurrentPageRefresh();
   });
 
   try {

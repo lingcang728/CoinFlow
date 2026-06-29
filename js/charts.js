@@ -22,6 +22,7 @@ if (window.Chart) {
 }
 
 const chartRegistry = new WeakMap();
+let resizeAllFrame = 0;
 
 // 老旧/低配设备或系统「减少动态」时，关闭图表入场动画以保流畅
 function chartsLite() {
@@ -71,13 +72,24 @@ function createOrUpdateChart(canvas, config, updateMode = 'none') {
   return chart;
 }
 
+function isCanvasVisible(canvas) {
+  if (!canvas || !canvas.isConnected) return false;
+  const rect = canvas.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function resizeChart(canvas) {
+  const chart = getChart(canvas);
+  if (!chart || !isCanvasVisible(canvas)) return;
+  chart.resize();
+  chart.update('none');
+}
+
 function resizeAll() {
-  document.querySelectorAll('canvas').forEach((canvas) => {
-    const chart = getChart(canvas);
-    if (chart) {
-      chart.resize();
-      chart.update('none');
-    }
+  if (resizeAllFrame) return;
+  resizeAllFrame = requestAnimationFrame(() => {
+    resizeAllFrame = 0;
+    document.querySelectorAll('.desktop-page.active canvas, .modal-overlay.active canvas').forEach(resizeChart);
   });
 }
 
