@@ -183,6 +183,13 @@ async function runSmokeTest(mainWindow) {
     throw new Error('Renderer app did not become ready for smoke test');
   }
 
+  async function reloadRendererForSmoke() {
+    mainWindow.webContents.reload();
+    await waitForRendererLoad(mainWindow);
+    await waitForAppReady();
+    await waitForRendererIdle();
+  }
+
   async function collectRendererState(label) {
     return evaluateRenderer(`
       (() => {
@@ -684,6 +691,180 @@ async function runSmokeTest(mainWindow) {
     `, 5000);
   }
 
+  async function verifyTransactionEditFlow() {
+    return evaluateRenderer(`
+      (async () => {
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const waitUntil = async (predicate, timeout = 5000) => {
+          const deadline = Date.now() + timeout;
+          while (Date.now() < deadline) {
+            if (await predicate()) return true;
+            await wait(80);
+          }
+          return false;
+        };
+        window.setCoinFlowMonth(2026, 5);
+        window.navigateToPage('transactions');
+        window.CoinFlowUtils.events.emit('dataChanged');
+        await wait(300);
+
+        const mayRecords = await window.CoinFlowDB.getTransactionsByMonth(2026, 5);
+        const target = mayRecords.find(tx => String(tx.note || '').startsWith('Smoke realtime'));
+        if (!target) return { found: false };
+
+        const firstRow = Array.from(document.querySelectorAll('.tx-item-row')).find(row => Number(row.dataset.id) === Number(target.id));
+        if (!firstRow) return { found: true, firstRow: false };
+        firstRow.click();
+        await wait(180);
+
+        const firstAmountInput = document.getElementById('edit-amount');
+        const firstDateInput = document.getElementById('edit-date');
+        if (!firstAmountInput || !firstDateInput) return { found: true, firstRow: true, firstModal: false };
+        firstAmountInput.value = '31.5';
+        firstAmountInput.dispatchEvent(new Event('input', { bubbles: true }));
+        firstAmountInput.dispatchEvent(new FocusEvent('blur', { bubbles: false }));
+        firstDateInput.value = '2026-06-15';
+        firstDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        const firstLabel = document.querySelector('#edit-date-trigger [data-date-label]');
+        if (firstLabel) firstLabel.textContent = '2026-06-15';
+        document.getElementById('btn-update-tx').click();
+
+        const moved = await waitUntil(async () => {
+          const updated = await window.CoinFlowDB.getTransactionById(target.id);
+          return updated && updated.date === '2026-06-15' && updated.amount === 31.5 &&
+            window.CoinFlowState.currentYear === 2026 && window.CoinFlowState.currentMonth === 6;
+        });
+
+        window.navigateToPage('transactions');
+        await wait(220);
+        const juneRow = Array.from(document.querySelectorAll('.tx-item-row')).find(row => Number(row.dataset.id) === Number(target.id));
+        if (!juneRow) return { found: true, firstRow: true, firstModal: true, moved, juneRow: false };
+        juneRow.click();
+        await wait(180);
+
+        const secondAmountInput = document.getElementById('edit-amount');
+        if (!secondAmountInput) return { found: true, moved, juneRow: true, secondModal: false };
+        secondAmountInput.value = '42.5';
+        secondAmountInput.dispatchEvent(new Event('input', { bubbles: true }));
+        secondAmountInput.dispatchEvent(new FocusEvent('blur', { bubbles: false }));
+        document.getElementById('btn-update-tx').click();
+
+        const amountChanged = await waitUntil(async () => {
+          const updated = await window.CoinFlowDB.getTransactionById(target.id);
+          return updated && updated.date === '2026-06-15' && updated.amount === 42.5;
+        });
+
+        await wait(220);
+        const deleteRow = Array.from(document.querySelectorAll('.tx-item-row')).find(row => Number(row.dataset.id) === Number(target.id));
+        if (!deleteRow) return { found: true, moved, amountChanged, deleteRow: false };
+        deleteRow.click();
+        await wait(180);
+        const originalConfirm = window.confirm;
+        window.confirm = () => true;
+        document.getElementById('btn-delete-tx').click();
+        window.confirm = originalConfirm;
+
+        const deleted = await waitUntil(async () => {
+          const deletedTx = await window.CoinFlowDB.getTransactionById(target.id);
+          return !deletedTx;
+        });
+        window.setCoinFlowMonth(2026, 5);
+        window.navigateToPage('dashboard');
+        window.CoinFlowUtils.events.emit('dataChanged');
+        await wait(180);
+
+        return {
+          found: true,
+          firstRow: true,
+          firstModal: true,
+          moved,
+          targetMonth: window.CoinFlowState.currentMonth,
+          amountChanged,
+          deleted
+        };
+      })()
+    `, 12000);
+  }
+
+  async function verifyLedgerRecoveryFlow() {
+    const storageInfo = await evaluateRenderer(`
+      (async () => {
+        const storage = await window.CoinFlowDB.getStorageInfo();
+        const recoveryLedger = {
+          schemaVersion: 1,
+          app: 'CoinFlow',
+          storage: 'documents-ledger-json',
+          indexedDBMigrationComplete: true,
+          indexedDBMigrationCompletedAt: new Date().toISOString(),
+          nextTransactionId: 2,
+          transactions: [
+            { id: 1, amount: 12.34, category: 'food', note: 'backup recovery smoke', date: '2026-07-01', createdAt: Date.now() }
+          ],
+          categories: [],
+          budget: null
+        };
+        await window.coinflowLedger.write(recoveryLedger);
+        await window.coinflowLedger.write({ ...recoveryLedger, nextTransactionId: 3 });
+        return storage;
+      })()
+    `, 8000);
+
+    await fs.promises.writeFile(storageInfo.ledgerPath, '{"broken":', 'utf8');
+    await reloadRendererForSmoke();
+
+    const backupRecovery = await evaluateRenderer(`
+      (async () => {
+        const july = await window.CoinFlowDB.getTransactionsByMonth(2026, 7);
+        return {
+          recovered: july.some(tx => tx.note === 'backup recovery smoke' && tx.amount === 12.34),
+          count: july.length
+        };
+      })()
+    `, 8000);
+
+    const remigrationSetup = await evaluateRenderer(`
+      (async () => {
+        const db = await window.idb.openDB('CoinFlowDB', 2);
+        await db.clear('transactions');
+        await db.add('transactions', {
+          amount: 88.88,
+          category: 'shopping',
+          note: 'stale indexeddb smoke',
+          date: '2026-08-01',
+          createdAt: Date.now()
+        });
+        db.close();
+        await window.coinflowLedger.write({
+          schemaVersion: 1,
+          app: 'CoinFlow',
+          storage: 'documents-ledger-json',
+          indexedDBMigrationComplete: true,
+          indexedDBMigrationCompletedAt: new Date().toISOString(),
+          nextTransactionId: 1,
+          transactions: [],
+          categories: [],
+          budget: null
+        });
+        return true;
+      })()
+    `, 8000);
+
+    await reloadRendererForSmoke();
+
+    const staleMigration = await evaluateRenderer(`
+      (async () => {
+        const august = await window.CoinFlowDB.getTransactionsByMonth(2026, 8);
+        return {
+          setup: ${JSON.stringify(Boolean(remigrationSetup))},
+          staleAbsent: !august.some(tx => tx.note === 'stale indexeddb smoke'),
+          count: august.length
+        };
+      })()
+    `, 8000);
+
+    return { backupRecovery, staleMigration };
+  }
+
   async function verifyIconMatching() {
     return evaluateRenderer(`
       (() => {
@@ -869,7 +1050,7 @@ async function runSmokeTest(mainWindow) {
   const failTimer = setTimeout(() => {
     writeSmokeLine('COINFLOW_SMOKE_ERROR=Timed out', 'stderr');
     app.exit(1);
-  }, 90000);
+  }, 150000);
 
   try {
     await writeSmokeArtifact('started.json', {
@@ -915,6 +1096,8 @@ async function runSmokeTest(mainWindow) {
     result.datePickerMonthNavigation = await verifyDatePickerMonthNavigation();
     mark('amount-decimal-keyboard');
     result.amountDecimalKeyboardInput = await verifyAmountDecimalKeyboardInput();
+    mark('transaction-edit-flow');
+    result.transactionEditFlow = await verifyTransactionEditFlow();
     mark('quick-add-autoclose');
     result.quickAddAutoClose = await verifyQuickAddAutoClose();
     mark('icon-matching');
@@ -944,6 +1127,8 @@ async function runSmokeTest(mainWindow) {
       result.layoutChecks.push(check);
     }
 
+    mark('ledger-recovery-flow');
+    result.ledgerRecoveryFlow = await verifyLedgerRecoveryFlow();
     result.rendererMessages = mainWindow.__coinflowRendererMessages;
     const badLayout = result.layoutChecks.find(check =>
       check.horizontalOverflow ||
@@ -1025,6 +1210,23 @@ async function runSmokeTest(mainWindow) {
         result.amountDecimalKeyboardInput.selectionStart !== 3 ||
         result.amountDecimalKeyboardInput.selectionEnd !== 3) {
       throw new Error(`Amount decimal keyboard check failed: ${JSON.stringify(result.amountDecimalKeyboardInput)}`);
+    }
+    if (!result.transactionEditFlow ||
+        !result.transactionEditFlow.found ||
+        !result.transactionEditFlow.firstRow ||
+        !result.transactionEditFlow.firstModal ||
+        !result.transactionEditFlow.moved ||
+        !result.transactionEditFlow.amountChanged ||
+        !result.transactionEditFlow.deleted) {
+      throw new Error(`Transaction edit flow check failed: ${JSON.stringify(result.transactionEditFlow)}`);
+    }
+    if (!result.ledgerRecoveryFlow ||
+        !result.ledgerRecoveryFlow.backupRecovery ||
+        !result.ledgerRecoveryFlow.backupRecovery.recovered ||
+        !result.ledgerRecoveryFlow.staleMigration ||
+        !result.ledgerRecoveryFlow.staleMigration.setup ||
+        !result.ledgerRecoveryFlow.staleMigration.staleAbsent) {
+      throw new Error(`Ledger recovery flow check failed: ${JSON.stringify(result.ledgerRecoveryFlow)}`);
     }
     result.resultPath = await writeSmokeArtifact('result.json', result);
 
