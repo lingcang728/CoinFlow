@@ -367,6 +367,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return currentPageId;
   };
 
+  window.setCoinFlowMonth = function(year, month) {
+    const nextYear = Number(year);
+    const nextMonth = Number(month);
+    if (!Number.isInteger(nextYear) || !Number.isInteger(nextMonth) || nextMonth < 1 || nextMonth > 12) {
+      return false;
+    }
+    setMonth(nextYear, nextMonth);
+    return true;
+  };
+
   window.openQuickAdd = openQuickAddPanel;
   window.closeQuickAdd = closeQuickAddPanel;
   window.focusQuickAdd = focusQuickAddAmount;

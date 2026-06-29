@@ -18,6 +18,7 @@
   let currentSortType = 'time-desc'; // time-desc, time-asc, amount-desc, amount-asc
   let searchTerm = '';
   let editModalEl = null;
+  let closeEditTimer = 0;
   let hasBoundEvents = false;
 
   /**
@@ -32,6 +33,9 @@
           searchTerm = searchInput.value.trim().toLowerCase();
           render();
         });
+      }
+      if (listContainer) {
+        listContainer.addEventListener('click', handleListClick);
       }
 
       // 3. 绑定导入导出
@@ -352,14 +356,15 @@
         listContainer.appendChild(groupCard);
       }
 
-      // 5. 绑定行点击编辑事件
-      document.querySelectorAll('.tx-item-row').forEach(row => {
-        row.onclick = () => openEditModal(row.dataset.id);
-      });
-
     } catch (err) {
       console.error('渲染明细页失败:', err);
     }
+  }
+
+  function handleListClick(event) {
+    const row = event.target.closest('.tx-item-row');
+    if (!row || !listContainer.contains(row)) return;
+    openEditModal(row.dataset.id);
   }
 
   /**
@@ -373,9 +378,16 @@
       if (!tx) return;
       const safeNote = window.CoinFlowUtils.escapeHtml(tx.note || '');
 
-      // 动态创建 Modal Overlay (如果已存在则清空)
+      if (closeEditTimer) {
+        clearTimeout(closeEditTimer);
+        closeEditTimer = 0;
+      }
       if (editModalEl) {
         editModalEl.remove();
+      }
+      const staleModal = document.getElementById('modal-edit-transaction');
+      if (staleModal) {
+        staleModal.remove();
       }
 
       editModalEl = document.createElement('div');
@@ -404,7 +416,7 @@
           <form id="form-edit-transaction">
             <div class="form-group" style="margin-bottom: 12px;">
               <label>消费金额 (元)</label>
-              <input type="number" step="0.01" id="edit-amount" class="form-input" value="${tx.amount}" required min="0.01">
+              <input type="text" inputmode="decimal" id="edit-amount" class="form-input" value="${Number(tx.amount).toFixed(2)}" required>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
@@ -449,6 +461,18 @@
       document.getElementById('btn-close-edit-modal').onclick = closeEditModal;
       document.getElementById('btn-delete-tx').onclick = () => handleDelete(txId);
       document.getElementById('btn-update-tx').onclick = () => handleUpdate(txId);
+      const amountInput = document.getElementById('edit-amount');
+      amountInput.addEventListener('input', () => normalizeEditAmountWhileTyping(amountInput));
+      amountInput.addEventListener('blur', () => normalizeEditAmountOnBlur(amountInput));
+      amountInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          handleUpdate(txId);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          closeEditModal();
+        }
+      });
       if (window.CoinFlowDatePicker) {
         window.CoinFlowDatePicker.attach(document.getElementById('edit-date'), {
           trigger: document.getElementById('edit-date-trigger')
@@ -460,36 +484,79 @@
     }
   }
 
-  function closeEditModal() {
-    if (editModalEl) {
-      editModalEl.classList.remove('active');
-      setTimeout(() => {
-        editModalEl.remove();
-        editModalEl = null;
-      }, 300);
+  function normalizeEditAmountWhileTyping(input) {
+    const cursorIndex = input.selectionStart === null ? input.value.length : input.selectionStart;
+    const normalized = window.CoinFlowUtils.normalizeAmountText(input.value, cursorIndex);
+    if (input.value === normalized.value) return;
+    input.value = normalized.value;
+    if (typeof input.setSelectionRange === 'function') {
+      input.setSelectionRange(normalized.cursor, normalized.cursor);
     }
+  }
+
+  function normalizeEditAmountOnBlur(input) {
+    const normalized = window.CoinFlowUtils.normalizeAmountForStorage(input.value);
+    if (!normalized) return;
+    input.value = normalized;
+  }
+
+  function closeEditModal() {
+    if (!editModalEl) return;
+    if (closeEditTimer) {
+      clearTimeout(closeEditTimer);
+    }
+    const modalToRemove = editModalEl;
+    editModalEl = null;
+    modalToRemove.classList.remove('active');
+    closeEditTimer = setTimeout(() => {
+      modalToRemove.remove();
+      closeEditTimer = 0;
+    }, 300);
   }
 
   // 修改保存
   async function handleUpdate(txId) {
-    const amount = parseFloat(document.getElementById('edit-amount').value);
+    const amountInput = document.getElementById('edit-amount');
+    const normalizedAmount = window.CoinFlowUtils.normalizeAmountForStorage(amountInput.value);
     const category = document.getElementById('edit-category').value;
-    const date = document.getElementById('edit-date').value;
+    const date = window.CoinFlowUtils.normalizeDateString(document.getElementById('edit-date').value);
     const note = document.getElementById('edit-note').value.trim();
 
-    if (isNaN(amount) || amount <= 0) {
+    if (!normalizedAmount) {
       window.CoinFlowUtils.showToast('请输入有效金额', 'warning');
+      return;
+    }
+    amountInput.value = normalizedAmount;
+    if (!date) {
+      window.CoinFlowUtils.showToast('请选择有效日期', 'warning');
       return;
     }
 
     try {
-      await window.CoinFlowDB.updateTransaction(txId, { amount, category, date, note });
+      const updated = await window.CoinFlowDB.updateTransaction(txId, {
+        amount: Number(normalizedAmount),
+        category,
+        date,
+        note
+      });
       window.CoinFlowUtils.triggerHaptic('success');
-      window.CoinFlowUtils.showToast('账单修改成功', 'success');
       closeEditModal();
+      const targetDate = updated && updated.date ? updated.date : date;
+      const [targetYear, targetMonth] = targetDate.split('-').map(Number);
+      const crossedMonth = targetYear !== window.CoinFlowState.currentYear || targetMonth !== window.CoinFlowState.currentMonth;
+      if (crossedMonth && typeof window.setCoinFlowMonth === 'function') {
+        window.setCoinFlowMonth(targetYear, targetMonth);
+        if (typeof window.navigateToPage === 'function') {
+          window.navigateToPage('transactions');
+        }
+        window.CoinFlowUtils.showToast(`账单已移至 ${targetYear}年${String(targetMonth).padStart(2, '0')}月`, 'success');
+      } else {
+        window.CoinFlowUtils.showToast('账单修改成功', 'success');
+      }
       window.CoinFlowUtils.events.emit('dataChanged');
     } catch (e) {
-      window.CoinFlowUtils.showToast('修改失败', 'error');
+      const message = e && e.message ? `修改失败：${e.message}` : '修改失败';
+      window.CoinFlowUtils.showToast(message, 'error');
     }
   }
 

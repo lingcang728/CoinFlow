@@ -57,6 +57,64 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => escapeMap[char]);
 }
 
+function normalizeAmountText(rawValue, cursorIndex = String(rawValue ?? '').length) {
+  const source = String(rawValue ?? '').replace(/[，。]/g, '.');
+  const safeCursor = Number.isFinite(cursorIndex) ? Math.max(0, cursorIndex) : source.length;
+  let value = '';
+  let nextCursor = 0;
+  let hasDot = false;
+  let integerDigits = 0;
+  let decimalDigits = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const beforeCursor = index < safeCursor;
+    let accepted = false;
+
+    if (/\d/.test(char)) {
+      if (hasDot) {
+        if (decimalDigits < 2) {
+          decimalDigits += 1;
+          accepted = true;
+        }
+      } else if (integerDigits < 8) {
+        integerDigits += 1;
+        accepted = true;
+      }
+    } else if (char === '.' && !hasDot) {
+      hasDot = true;
+      accepted = true;
+    }
+
+    if (accepted) {
+      value += char;
+      if (beforeCursor) {
+        nextCursor += 1;
+      }
+    }
+  }
+
+  return { value, cursor: nextCursor };
+}
+
+function normalizeAmountForStorage(rawValue) {
+  const normalized = normalizeAmountText(rawValue).value;
+  const amount = parseFloat(normalized);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return amount.toFixed(2);
+}
+
+function normalizeDateString(rawValue) {
+  const match = String(rawValue || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 // 智能震动反馈 (模拟 iOS Haptic Feedback)
 function triggerHaptic(type = 'light') {
   if (!navigator.vibrate) return;
@@ -164,6 +222,9 @@ window.CoinFlowUtils = {
   formatFriendlyDate,
   getTodayDateString,
   escapeHtml,
+  normalizeAmountText,
+  normalizeAmountForStorage,
+  normalizeDateString,
   triggerHaptic,
   events: coinFlowEvents,
   showToast

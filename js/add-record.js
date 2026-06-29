@@ -149,49 +149,9 @@
     }
   }
 
-  function normalizeAmountText(rawValue, cursorIndex = rawValue.length) {
-    const source = String(rawValue).replace(/[，。]/g, '.');
-    const safeCursor = Number.isFinite(cursorIndex) ? Math.max(0, cursorIndex) : source.length;
-    let value = '';
-    let nextCursor = 0;
-    let hasDot = false;
-    let integerDigits = 0;
-    let decimalDigits = 0;
-
-    for (let index = 0; index < source.length; index += 1) {
-      const char = source[index];
-      const beforeCursor = index < safeCursor;
-      let accepted = false;
-
-      if (/\d/.test(char)) {
-        if (hasDot) {
-          if (decimalDigits < 2) {
-            decimalDigits += 1;
-            accepted = true;
-          }
-        } else if (integerDigits < 8) {
-          integerDigits += 1;
-          accepted = true;
-        }
-      } else if (char === '.' && !hasDot) {
-        hasDot = true;
-        accepted = true;
-      }
-
-      if (accepted) {
-        value += char;
-        if (beforeCursor) {
-          nextCursor += 1;
-        }
-      }
-    }
-
-    return { value, cursor: nextCursor };
-  }
-
   function normalizeAmountWhileTyping() {
     const cursorIndex = amountInput.selectionStart === null ? amountInput.value.length : amountInput.selectionStart;
-    const normalized = normalizeAmountText(amountInput.value, cursorIndex);
+    const normalized = window.CoinFlowUtils.normalizeAmountText(amountInput.value, cursorIndex);
 
     if (amountInput.value === normalized.value) return;
 
@@ -202,9 +162,9 @@
   }
 
   function normalizeAmountOnBlur() {
-    const amount = parseFloat(amountInput.value);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    amountInput.value = amount.toFixed(2);
+    const normalized = window.CoinFlowUtils.normalizeAmountForStorage(amountInput.value);
+    if (!normalized) return;
+    amountInput.value = normalized;
   }
 
   function handleAmountKeydown(event) {
@@ -262,16 +222,17 @@
   async function saveRecord() {
     if (isSaving) return;
 
-    const amount = parseFloat(amountInput.value);
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const normalizedAmount = window.CoinFlowUtils.normalizeAmountForStorage(amountInput.value);
+    if (!normalizedAmount) {
       window.CoinFlowUtils.showToast('请输入有效金额', 'warning');
       focusAmount();
       return;
     }
+    amountInput.value = normalizedAmount;
 
     const note = noteInput.value.trim();
-    const date = dateInput.value;
-    if (!date || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
+    const date = window.CoinFlowUtils.normalizeDateString(dateInput.value);
+    if (!date) {
       window.CoinFlowUtils.showToast('请选择有效日期', 'warning');
       return;
     }
@@ -279,7 +240,7 @@
     try {
       setSaving(true);
       await window.CoinFlowDB.addTransaction({
-        amount,
+        amount: Number(normalizedAmount),
         category: selectedCategory,
         note,
         date
