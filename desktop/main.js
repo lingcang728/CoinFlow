@@ -171,7 +171,11 @@ function registerIpcHandlers() {
       return { state: 'dev' };
     }
     try {
-      await autoUpdater.checkForUpdates();
+      await withTimeout(
+        autoUpdater.checkForUpdates(),
+        30000,
+        '检查更新超时，请稍后重试'
+      );
       return { state: 'checking' };
     } catch (error) {
       const message = describeUpdateError(error);
@@ -231,42 +235,105 @@ async function readLedgerFile() {
     };
   }
 
-  const raw = await fs.promises.readFile(paths.ledgerPath, 'utf8');
+  try {
+    return {
+      exists: true,
+      ledgerPath: paths.ledgerPath,
+      ledgerDir: paths.ledgerDir,
+      data: await readJsonFile(paths.ledgerPath)
+    };
+  } catch (error) {
+    console.error('[Ledger] Failed to read primary ledger:', error);
+  }
+
+  if (fs.existsSync(paths.backupPath)) {
+    try {
+      const backupData = await readJsonFile(paths.backupPath);
+      await fs.promises.copyFile(paths.backupPath, paths.ledgerPath);
+      return {
+        exists: true,
+        recovered: true,
+        warning: '主账本文件损坏，已从备份恢复',
+        ledgerPath: paths.ledgerPath,
+        ledgerDir: paths.ledgerDir,
+        data: backupData
+      };
+    } catch (backupError) {
+      console.error('[Ledger] Failed to recover from backup ledger:', backupError);
+    }
+  }
+
   return {
     exists: true,
+    recoveryFailed: true,
+    warning: '账本文件损坏且备份不可用，已临时载入空账本',
     ledgerPath: paths.ledgerPath,
     ledgerDir: paths.ledgerDir,
-    data: JSON.parse(raw)
+    data: emptyLedger()
   };
 }
 
 async function writeLedgerFile(payload = {}) {
   const paths = getLedgerPaths();
-  await fs.promises.mkdir(paths.ledgerDir, { recursive: true });
+  try {
+    await fs.promises.mkdir(paths.ledgerDir, { recursive: true });
 
-  const data = {
-    ...emptyLedger(),
-    ...payload,
-    schemaVersion: 1,
-    app: 'CoinFlow',
-    storage: 'documents-ledger-json',
-    updatedAt: new Date().toISOString()
-  };
+    const data = {
+      ...emptyLedger(),
+      ...payload,
+      schemaVersion: 1,
+      app: 'CoinFlow',
+      storage: 'documents-ledger-json',
+      updatedAt: new Date().toISOString()
+    };
 
-  const json = `${JSON.stringify(data, null, 2)}\n`;
-  await fs.promises.writeFile(paths.tempPath, json, 'utf8');
+    const json = `${JSON.stringify(data, null, 2)}\n`;
+    await fs.promises.writeFile(paths.tempPath, json, 'utf8');
+    JSON.parse(await fs.promises.readFile(paths.tempPath, 'utf8'));
 
-  if (fs.existsSync(paths.ledgerPath)) {
-    await fs.promises.copyFile(paths.ledgerPath, paths.backupPath);
+    if (fs.existsSync(paths.ledgerPath)) {
+      await fs.promises.copyFile(paths.ledgerPath, paths.backupPath);
+    }
+
+    await fs.promises.rename(paths.tempPath, paths.ledgerPath);
+    JSON.parse(await fs.promises.readFile(paths.ledgerPath, 'utf8'));
+    return {
+      ok: true,
+      ledgerPath: paths.ledgerPath,
+      backupPath: fs.existsSync(paths.backupPath) ? paths.backupPath : null,
+      bytes: Buffer.byteLength(json, 'utf8')
+    };
+  } catch (error) {
+    await removeIfExists(paths.tempPath);
+    const detail = error && error.message ? error.message : String(error);
+    throw new Error(`账本写入失败：${detail}`);
   }
+}
 
-  await fs.promises.rename(paths.tempPath, paths.ledgerPath);
-  return {
-    ok: true,
-    ledgerPath: paths.ledgerPath,
-    backupPath: fs.existsSync(paths.backupPath) ? paths.backupPath : null,
-    bytes: Buffer.byteLength(json, 'utf8')
-  };
+async function readJsonFile(filePath) {
+  return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+}
+
+async function removeIfExists(filePath) {
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (error) {
+    if (!error || error.code !== 'ENOENT') {
+      console.warn('[Ledger] Failed to remove temp file:', error);
+    }
+  }
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
 }
 
 // 把 electron-updater 抛出的原始错误（含堆栈、COS XML、request-id）归一成

@@ -130,6 +130,9 @@ async function getLedgerData() {
   if (!ledgerPromise) {
     ledgerPromise = (async () => {
       const response = await window.coinflowLedger.read();
+      if (response && response.warning && window.CoinFlowUtils && typeof window.CoinFlowUtils.showToast === 'function') {
+        window.CoinFlowUtils.showToast(response.warning, response.recoveryFailed ? 'error' : 'warning');
+      }
       let ledger = normalizeLedger(response && response.data);
       const isEmpty = ledger.transactions.length === 0 && ledger.categories.length === 0 && !ledger.budget;
 
