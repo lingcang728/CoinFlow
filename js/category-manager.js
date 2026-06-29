@@ -98,10 +98,7 @@
 
   async function renderList() {
     const categories = window.CoinFlowCategories.getCategoryList();
-    const usageEntries = await Promise.all(
-      categories.map(async cat => [cat.key, await window.CoinFlowDB.countTransactionsByCategory(cat.key)])
-    );
-    const usageMap = Object.fromEntries(usageEntries);
+    const usageMap = await window.CoinFlowDB.getCategoryUsageCounts(categories.map(cat => cat.key));
 
     listEl.innerHTML = '';
     categories.forEach(cat => {
@@ -125,6 +122,13 @@
     });
   }
 
+  function updateListSelection() {
+    if (!listEl) return;
+    listEl.querySelectorAll('.category-manager-row').forEach(row => {
+      row.classList.toggle('active', row.dataset.category === selectedKey);
+    });
+  }
+
   async function selectCategory(key) {
     const cat = window.CoinFlowCategories.getCategory(key);
     selectedKey = key;
@@ -140,7 +144,7 @@
     btnDelete.textContent = '删除';
 
     updatePreview();
-    await renderList();
+    updateListSelection();
   }
 
   function resetEditor() {
@@ -207,9 +211,7 @@
       window.CoinFlowUtils.events.emit('categoriesChanged');
       window.CoinFlowUtils.events.emit('dataChanged');
       await renderList();
-      if (selectedKey) {
-        await selectCategory(selectedKey);
-      }
+      updateListSelection();
     } catch (error) {
       console.error('保存分类失败:', error);
       window.CoinFlowUtils.showToast(error.message || '保存分类失败', 'error');

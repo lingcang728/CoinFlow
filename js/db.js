@@ -329,24 +329,49 @@ async function clearCategories() {
 }
 
 async function countTransactionsByCategory(key) {
+  const usageCounts = await getCategoryUsageCounts([key]);
+  return usageCounts[key] || 0;
+}
+
+async function getCategoryUsageCounts(keys) {
+  const keySet = Array.isArray(keys) && keys.length > 0 ? new Set(keys) : null;
+  const counts = {};
+  if (keySet) {
+    keySet.forEach(key => {
+      counts[key] = 0;
+    });
+  }
+
   const ledger = await getLedgerData();
   if (ledger) {
-    return ledger.transactions.filter(tx => tx.category === key).length;
+    ledger.transactions.forEach(tx => {
+      if (keySet && !keySet.has(tx.category)) return;
+      counts[tx.category] = (counts[tx.category] || 0) + 1;
+    });
+    return counts;
   }
 
   const db = await getDB();
-  const txs = await db.getAllFromIndex('transactions', 'category', key);
-  return txs.length;
+  const txs = await db.getAll('transactions');
+  txs.forEach(tx => {
+    if (keySet && !keySet.has(tx.category)) return;
+    counts[tx.category] = (counts[tx.category] || 0) + 1;
+  });
+  return counts;
 }
 
-async function addTransaction(tx) {
-  const transactionInput = {
+function normalizeTransactionInput(tx) {
+  return {
     amount: parseFloat(tx.amount),
     category: tx.category,
     note: tx.note || '',
     date: tx.date,
     createdAt: tx.createdAt || Date.now()
   };
+}
+
+async function addTransaction(tx) {
+  const transactionInput = normalizeTransactionInput(tx);
 
   const ledger = await getLedgerData();
   if (ledger) {
@@ -362,6 +387,38 @@ async function addTransaction(tx) {
   const db = await getDB();
   const id = await db.add('transactions', transactionInput);
   return { id, ...transactionInput };
+}
+
+async function addTransactions(transactions) {
+  const transactionInputs = (Array.isArray(transactions) ? transactions : [])
+    .map(normalizeTransactionInput)
+    .filter(tx => Number.isFinite(tx.amount) && tx.amount > 0 && tx.category && tx.date);
+
+  if (transactionInputs.length === 0) return [];
+
+  const ledger = await getLedgerData();
+  if (ledger) {
+    return saveLedgerMutation((nextLedger) => {
+      const saved = transactionInputs.map((tx) => {
+        const transaction = { id: nextLedger.nextTransactionId, ...tx };
+        nextLedger.nextTransactionId += 1;
+        nextLedger.transactions.push(transaction);
+        return clone(transaction);
+      });
+      nextLedger.nextTransactionId = maxTransactionId(nextLedger.transactions) + 1;
+      return saved;
+    });
+  }
+
+  const db = await getDB();
+  const tx = db.transaction('transactions', 'readwrite');
+  const saved = [];
+  for (const transactionInput of transactionInputs) {
+    const id = await tx.store.add(transactionInput);
+    saved.push({ id, ...transactionInput });
+  }
+  await tx.done;
+  return saved;
 }
 
 async function deleteTransaction(id) {
@@ -525,7 +582,9 @@ window.CoinFlowDB = {
   deleteCategory,
   clearCategories,
   countTransactionsByCategory,
+  getCategoryUsageCounts,
   addTransaction,
+  addTransactions,
   deleteTransaction,
   clearTransactions,
   getTransactionById,

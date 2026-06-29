@@ -168,21 +168,19 @@ function shouldSkipByTypeOrStatus(row, indices) {
 async function saveImportedTransactions(rawTransactions) {
   const categoryNames = rawTransactions.map(tx => tx.categoryName);
   const { keysByName, createdCategories, restoredCategories } = await window.CoinFlowCategories.ensureCategoryMap(categoryNames);
-  let successCount = 0;
-
-  for (const tx of rawTransactions) {
+  const transactions = rawTransactions.map(tx => {
     const normalizedName = window.CoinFlowCategories.normalizeName(tx.categoryName);
     const categoryKey = keysByName[normalizedName] || 'shopping';
-    await window.CoinFlowDB.addTransaction({
+    return {
       amount: tx.amount,
       category: categoryKey,
       note: tx.note || normalizedName,
       date: tx.date
-    });
-    successCount += 1;
-  }
+    };
+  });
+  const saved = await window.CoinFlowDB.addTransactions(transactions);
 
-  return { successCount, createdCategories, restoredCategories };
+  return { successCount: saved.length, createdCategories, restoredCategories };
 }
 
 function extractGenericTransactionsFromRows(rows, XLSX) {
@@ -342,10 +340,8 @@ function importFromExcel(file, defaultYear = 2026) {
         }
 
         if (allTransactions.length > 0) {
-          for (const tx of allTransactions) {
-            await window.CoinFlowDB.addTransaction(tx);
-          }
-          totalImported = allTransactions.length;
+          const saved = await window.CoinFlowDB.addTransactions(allTransactions);
+          totalImported = saved.length;
         }
 
         resolve({
@@ -526,10 +522,8 @@ function importFromCSV(file) {
         
         let successCount = 0;
         if (allTransactions.length > 0) {
-          for (const tx of allTransactions) {
-            await window.CoinFlowDB.addTransaction(tx);
-          }
-          successCount = allTransactions.length;
+          const saved = await window.CoinFlowDB.addTransactions(allTransactions);
+          successCount = saved.length;
         }
         
         resolve({
@@ -574,6 +568,17 @@ function autoFitColumns(sheet) {
   sheet['!cols'] = widths;
 }
 
+function csvCell(value) {
+  let text = String(value ?? '');
+  if (/^[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+  if (text.includes(',') || text.includes('\n') || text.includes('"')) {
+    text = `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
 /**
  * 导出 CSV 账单
  */
@@ -589,11 +594,14 @@ async function exportToCSV(year, month) {
     
     transactions.forEach((tx, idx) => {
       const catInfo = window.CoinFlowCategories.getCategory(tx.category);
-      let note = tx.note || '';
-      if (note.includes(',') || note.includes('\n') || note.includes('"')) {
-        note = '"' + note.replace(/"/g, '""') + '"';
-      }
-      csvContent += `${idx + 1},${tx.date},${catInfo.name},${tx.amount.toFixed(2)},${note}\n`;
+      const row = [
+        idx + 1,
+        tx.date,
+        catInfo.name,
+        tx.amount.toFixed(2),
+        tx.note || ''
+      ];
+      csvContent += `${row.map(csvCell).join(',')}\n`;
     });
     
     const result = await window.CoinFlowRuntime.saveFile({
