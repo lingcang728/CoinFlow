@@ -14,6 +14,8 @@ app.setName('CoinFlow');
 // 渲染层通过 coinflow:ledger-* IPC 读写 Documents\CoinFlow\Ledger\coinflow-ledger.json；
 // userData 只保留窗口状态、WebView 缓存、旧 IndexedDB 迁移源等非权威数据。
 
+let activeMainWindow = null;
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
@@ -90,6 +92,12 @@ function createMainWindow() {
   });
 
   mainWindow.loadURL(`${APP_SCHEME}://app/index.html`);
+  activeMainWindow = mainWindow;
+  mainWindow.on('closed', () => {
+    if (activeMainWindow === mainWindow) {
+      activeMainWindow = null;
+    }
+  });
   return mainWindow;
 }
 
@@ -391,28 +399,43 @@ function wireAutoUpdater() {
   }));
 }
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-app.whenReady().then(async () => {
-  await registerLocalProtocol();
-  registerIpcHandlers();
-  if (!IS_SMOKE_TEST) {
-    wireAutoUpdater();
-  }
-  const mainWindow = createMainWindow();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const targetWindow = activeMainWindow || BrowserWindow.getAllWindows()[0];
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    if (targetWindow.isMinimized()) {
+      targetWindow.restore();
+    }
+    targetWindow.show();
+    targetWindow.focus();
+  });
 
-  if (IS_SMOKE_TEST) {
-    runSmokeTest(mainWindow);
-  }
+  app.whenReady().then(async () => {
+    await registerLocalProtocol();
+    registerIpcHandlers();
+    if (!IS_SMOKE_TEST) {
+      wireAutoUpdater();
+    }
+    const mainWindow = createMainWindow();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+    if (IS_SMOKE_TEST) {
+      runSmokeTest(mainWindow);
+    }
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow();
+      }
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
     }
   });
-});
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+}
