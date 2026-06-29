@@ -265,3 +265,20 @@
   - `npm run build:desktop` builds locally with `--publish never`.
   - `npm run release:desktop` publishes with `--publish always` and requires a `GH_TOKEN` in the environment.
 - Documented the update-chain tradeoff: existing 1.1.x installs have COS baked into `resources\app-update.yml`, so 1.1.6 must be installed manually once for family users; later versions will update from GitHub Releases.
+
+## 2026-06-29 Data Safety, Edit Stability, and GitHub Release Prep (1.1.6)
+
+- Bumped `1.1.5` -> `1.1.6` for the GitHub Releases migration build.
+- Hardened ledger writes with a renderer-side write queue, main-process temp-file cleanup, parse verification, `.bak` recovery, and visible write/recovery warnings instead of silent success on filesystem failures.
+- Added a single-instance lock so two CoinFlow windows cannot write the same Documents ledger concurrently.
+- Added a persistent IndexedDB migration marker so an empty or damaged Documents ledger will not re-import stale pre-migration IndexedDB records after deletion.
+- Stabilized transaction editing: shared amount/date normalization, edit date validation, cross-month edit navigation, protected modal close timers, and delegated transaction row clicks.
+- Reduced heavy mid-session refreshes with batch imports, single-scan category usage counts, coalesced `dataChanged` refreshes, and visible-chart-only resize with lazy page-switch resize.
+- Switched update publishing to GitHub Releases while keeping `build:desktop` as local-only and `release:desktop` as the GH_TOKEN-backed publishing command.
+- Verification before bump:
+  - JS syntax sanity passed for `desktop/main.js`, `desktop/preload.js`, `desktop/smoke.js`, and all `js/*.js`.
+  - `npm run smoke:desktop` passed with `runId=20260629061457-45872`; covered cross-month edit, second amount edit, deletion, `.bak` recovery, stale IndexedDB remigration blocking, category manager, exports, chart readiness, and six desktop layout widths.
+- Release verification:
+  - `npm run build:desktop` passed and produced `release\CoinFlow-Setup-1.1.6.exe`, `release\CoinFlow-Setup-1.1.6.exe.blockmap`, `release\latest.yml`, and refreshed `release\win-unpacked\`.
+  - `release\win-unpacked\resources\app-update.yml` now contains `provider: github`, `owner: lingcang728`, and `repo: CoinFlow`.
+  - Packaged smoke from `release\win-unpacked\CoinFlow.exe` passed with `runId=20260629061851-20948`; transaction edit, `.bak` recovery, stale remigration blocking, renderer-message, and six-layout checks passed.
