@@ -7,7 +7,8 @@
     "dev": "electron .",
     "desktop": "electron .",
     "start": "electron .",
-    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win nsis",
+    "build:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win nsis --publish never",
+    "release:desktop": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& electron-builder --win nsis --publish always",
     "postbuild:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/clean-release-artifacts.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "shortcut:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-desktop-shortcut.ps1",
     "smoke:desktop": "set COINFLOW_SMOKE_TEST=1&& electron .",
@@ -21,6 +22,7 @@
     "大学生记账"
   ],
   "author": "凌苍",
+  "repository": "https://github.com/lingcang728/CoinFlow",
   "license": "ISC",
   "build": {
     "appId": "com.lingcang.coinflow",
@@ -60,13 +62,11 @@
       "artifactName": "CoinFlow-Setup-${version}.exe",
       "shortcutName": "CoinFlow"
     },
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/",
-        "channel": "latest"
-      }
-    ]
+    "publish": {
+      "provider": "github",
+      "owner": "lingcang728",
+      "repo": "CoinFlow"
+    }
   },
   "dependencies": {
     "electron-updater": "^6.8.3"
