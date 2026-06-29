@@ -3,6 +3,7 @@
 // 浏览器/PWA 环境保留 IndexedDB 兜底。
 const DB_NAME = 'CoinFlowDB';
 const DB_VERSION = 2;
+const INDEXEDDB_MIGRATION_MARKER = 'coinflow:indexeddb-migration-complete';
 
 let dbPromise = null;
 let ledgerPromise = null;
@@ -93,6 +94,26 @@ function normalizeLedger(raw) {
   return data;
 }
 
+function hasIndexedDBMigrationCompleted(ledger) {
+  if (ledger && ledger.indexedDBMigrationComplete) return true;
+  try {
+    return window.localStorage && window.localStorage.getItem(INDEXEDDB_MIGRATION_MARKER) === '1';
+  } catch (_error) {
+    return false;
+  }
+}
+
+function markIndexedDBMigrationComplete(ledger) {
+  ledger.indexedDBMigrationComplete = true;
+  ledger.indexedDBMigrationCompletedAt = ledger.indexedDBMigrationCompletedAt || new Date().toISOString();
+  try {
+    if (window.localStorage) {
+      window.localStorage.setItem(INDEXEDDB_MIGRATION_MARKER, '1');
+    }
+  } catch (_error) {
+  }
+}
+
 async function readIndexedDBSnapshot() {
   try {
     const db = await getDB();
@@ -135,8 +156,10 @@ async function getLedgerData() {
       }
       let ledger = normalizeLedger(response && response.data);
       const isEmpty = ledger.transactions.length === 0 && ledger.categories.length === 0 && !ledger.budget;
+      const migrationComplete = hasIndexedDBMigrationCompleted(ledger);
+      let shouldWriteLedger = false;
 
-      if (!response.exists || isEmpty) {
+      if ((!response.exists || isEmpty) && !migrationComplete && !(response && response.recoveryFailed)) {
         const legacy = await readIndexedDBSnapshot();
         if (legacy.transactions.length > 0 || legacy.categories.length > 0 || legacy.budget) {
           ledger = normalizeLedger({
@@ -148,6 +171,17 @@ async function getLedgerData() {
             migratedAt: new Date().toISOString()
           });
         }
+        shouldWriteLedger = true;
+      }
+
+      if (ledger.indexedDBMigrationComplete) {
+        markIndexedDBMigrationComplete(ledger);
+      } else if (!(response && response.recoveryFailed)) {
+        markIndexedDBMigrationComplete(ledger);
+        shouldWriteLedger = true;
+      }
+
+      if (shouldWriteLedger) {
         await writeLedgerData(ledger);
       }
 
