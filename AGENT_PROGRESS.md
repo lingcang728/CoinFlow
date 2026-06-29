@@ -255,3 +255,13 @@
   - Packaged smoke passed from `release\win-unpacked\CoinFlow.exe` with `runId=20260602085933-2100`; category deletion/restoration assertions passed, renderer messages `0`, layout failures `0`.
   - Silent installer validation installed `1.1.3` to `%LOCALAPPDATA%\Programs\CoinFlow`; installed `app.asar` reports version `1.1.3`, installed `app-update.yml` points to `https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`, and installed smoke passed with `runId=20260602090120-24452`.
 - Files to upload to COS Bucket root: `latest.yml`, `CoinFlow-Setup-1.1.3.exe`, `CoinFlow-Setup-1.1.3.exe.blockmap`.
+
+## 2026-06-29 Restore 1.1.5 Source Snapshot + Start GitHub Releases Migration
+
+- Restored the missing `1.1.5` source checkpoint in git and tagged it as `v1.1.5`, matching the already-built local `release\CoinFlow-Setup-1.1.5.exe`, `.blockmap`, `latest.yml`, and `win-unpacked/` artifacts.
+- Confirmed the old Tencent COS update endpoint is no longer usable: both `latest.yml` and an old setup executable request returned HTTP `451`, so installed clients that still point to COS cannot auto-update through the old chain.
+- Created/configured the public GitHub repository `https://github.com/lingcang728/CoinFlow` as the new release host and changed `package.json` publishing to GitHub Releases.
+- Split desktop packaging scripts:
+  - `npm run build:desktop` builds locally with `--publish never`.
+  - `npm run release:desktop` publishes with `--publish always` and requires a `GH_TOKEN` in the environment.
+- Documented the update-chain tradeoff: existing 1.1.x installs have COS baked into `resources\app-update.yml`, so 1.1.6 must be installed manually once for family users; later versions will update from GitHub Releases.

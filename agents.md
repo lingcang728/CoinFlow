@@ -9,10 +9,12 @@
 0. **产品方向：Electron-first / Desktop-only**：
    - CoinFlow 从现在开始只面向 Windows Electron 桌面端维护，浏览器直开 `index.html` 仅作为开发调试兜底。
    - 旧 PWA、移动端底部导航、手机宽度 app shell、触感数字键盘和 iOS 式滑动页面转场均视为遗留实现，不再作为正式产品目标。
-   - 新增或修复功能时，优先保证桌面端本地记账、IndexedDB 持久化、Excel/CSV/HTML 导入导出和高 DPI 使用体验。
+   - 新增或修复功能时，优先保证桌面端本地记账、Documents JSON 账本持久化、Excel/CSV/HTML 导入导出和高 DPI 使用体验。
 
 1. **每次修改必须 Git Commit & 存档**：
    - 任何代理人在对代码进行增删、Bug 修复或功能迭代后，必须执行 Git Commit，并在提交信息中写明修改细节（如 `feat: 优化导航栏转场稳定性`、`fix: 防止 Adblock 插件对样式的破坏`）。
+   - 每个独立修复、功能批次或文档规则变更完成并验证后，必须立刻单独 `git commit`；禁止把多个不相关改动攒成一个大提交。
+   - 重新打包前，必须确认前面的代码/文档改动都已经按批次提交；版本号与 `release/` 产物作为最后的发布提交单独存档。
    - 每次代码变更完成并验证后，必须同步更新 [task.md](file:///C:/Users/15pro/.gemini/antigravity/brain/413be84f-a7ee-47c5-8015-d13ef25850f7/task.md) 或是写明任务进度状态。
 
 2. **样式抗干扰性保证 (Anti-Interference)**：
@@ -28,13 +30,13 @@
    - 每次修复或功能开发完成后，必须运行 `npm run build:desktop` 重新打包，并确保生成的安装包能正常安装、启动，用以校验成果。
    - 每次重新打包前必须同步递增 `package.json` 与 `package-lock.json` 中的版本号（例如 `1.0.4` → `1.0.5`）。自动更新依赖版本号比较，**版本号只能递增，不可回退或复用**。
    - 每次重新打包后，必须立即清理旧版打包残留物；`release/` 只保留**当前版本**的 `CoinFlow-Setup-<version>.exe`、其 `.blockmap`、`latest.yml` 与 `win-unpacked/`，删除历史安装包、历史 blockmap 与 `builder-debug.yml` 等调试文件。
-   - **数据持久化（关键）**：正式安装版使用 Electron 默认 `userData`（`%APPDATA%\CoinFlow`）存放账本 IndexedDB。自动更新只替换程序文件、不触碰该目录，因此**升级后数据始终保留、无需任何手动迁移**。禁止把 `userData` 改到程序安装目录内（否则更新会丢数据）。
-   - **自动更新发布**：`package.json` 的 `build.publish`（`provider: generic`）指向「国内对象存储」的固定网址（当前为腾讯云 COS：`https://coinflow-1408718786.cos.ap-shanghai.myqcloud.com/`，**注意桶名是 `coinflow-1408718786`，文件直接放桶根目录，不要写成 `coinflow/` 子目录**）。家人端点击「关于 → 检查更新」即可自动下载安装。
-   - 🔔 **每次打包后必须手动上传 3 个文件到 COS 桶根目录（缺一不可）**：
-     1. `latest.yml`（**必须覆盖上传**，否则检测不到新版本）
+   - **数据持久化（关键）**：正式安装版使用 `Documents\CoinFlow\Ledger\coinflow-ledger.json` 作为权威账本文件；Electron `userData` / IndexedDB 仅作为窗口状态、缓存、浏览器兜底或旧数据迁移源。自动更新只替换程序文件、不触碰 Documents 账本，因此**升级后数据始终保留**。禁止把账本改到程序安装目录内（否则更新或卸载会丢数据）。
+   - **自动更新发布**：`package.json` 的 `build.publish` 使用 GitHub Releases（`provider: github`，公开仓库 `lingcang728/CoinFlow`）作为唯一新更新源。`npm run build:desktop` 只做本地打包（`--publish never`），`npm run release:desktop` 在设置 `GH_TOKEN` 后自动创建 GitHub draft Release 并上传更新资产。
+   - 🔔 **每次发布必须确保 GitHub Release 含 3 个文件（缺一不可）**：
+     1. `latest.yml`（必须是当前版本，否则检测不到新版本）
      2. `CoinFlow-Setup-<version>.exe`（安装包）
      3. `CoinFlow-Setup-<version>.exe.blockmap`（增量更新差分）
-     上传是**手动步骤**，打包命令不会自动完成。**AI 代理在每次成功打包后，必须主动提醒凌苍去 COS 上传这 3 个文件，并列出本次的具体文件名**；不要默认已上传。详见根目录《自动更新发布指南.md》。
+     `electron-builder` 的 GitHub provider 默认生成 draft Release；家人端看不到 draft，必须人工确认后发布。已安装的 1.1.x 存量客户端仍指向旧 COS 更新源，无法自动迁移到 GitHub；1.1.6 需手动重装一次，之后才走 GitHub 自动更新。
 
 ---
 
@@ -57,7 +59,9 @@ git commit -m "feat/fix: 简要描述你修改的模块和原因"
 
 ## 📅 版本迭代历史与待办 (Backlog)
 
-* **V1.0.5 (当前)**：发行形态改为 NSIS 一键安装版并接入自动更新（`electron-updater` + 国内对象存储 generic 源）；「关于」面板新增「检查更新」按钮，可一键下载安装并重启。数据回归 `%APPDATA%\CoinFlow`，更新永不丢失、零手动迁移。
+* **V1.1.6 (计划发布)**：弃用腾讯云 COS 更新源，改用 GitHub Releases；存量 1.1.x 客户端需手动安装一次 1.1.6 才能切到 GitHub 自动更新链路。
+* **V1.1.5**：权威账本迁移到 `Documents\CoinFlow\Ledger\coinflow-ledger.json`，IndexedDB 仅保留为旧数据迁移源/浏览器兜底。
+* **V1.0.5**：发行形态改为 NSIS 一键安装版并接入自动更新（`electron-updater`）；「关于」面板新增「检查更新」按钮，可一键下载安装并重启。
 * **V1.0.4**：面向老旧/低配设备的性能优化（自动「精简渲染」模式，关闭毛玻璃模糊与图表动画）。曾短暂尝试绿色免安装文件夹（`dir` target）+ 程序目录数据本地化，因不便于自动更新与跨版本保留数据，于 V1.0.5 改为安装版方案。
 * **V1.0.1**：修复添加记录日期选择器切换月份后弹层误关闭的问题；从本版本开始，每次打包必须同步递增版本号并生成对应版本的 `.exe`。
 * **V1.0.0**：已完成 IndexedDB 数据持久化、数字滚动动效、Chart.js 各式图表、GitHub 月历热力图，以及适配凌苍原有账单的 Excel 拆分导入导出功能。
