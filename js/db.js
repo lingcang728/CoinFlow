@@ -7,6 +7,7 @@ const DB_VERSION = 2;
 let dbPromise = null;
 let ledgerPromise = null;
 let ledgerCache = null;
+let ledgerWriteQueue = Promise.resolve();
 
 function getDB() {
   if (!window.idb || typeof window.idb.openDB !== 'function') {
@@ -114,6 +115,14 @@ async function writeLedgerData(data) {
   return normalized;
 }
 
+function queueLedgerWrite(task) {
+  const queued = ledgerWriteQueue.then(task);
+  ledgerWriteQueue = queued.catch(error => {
+    console.error('CoinFlow ledger write failed:', error);
+  });
+  return queued;
+}
+
 async function getLedgerData() {
   if (!hasDesktopLedger()) return null;
   if (ledgerCache) return ledgerCache;
@@ -148,10 +157,12 @@ async function getLedgerData() {
 }
 
 async function saveLedgerMutation(mutator) {
-  const ledger = await getLedgerData();
-  const result = await mutator(ledger);
-  await writeLedgerData(ledger);
-  return result;
+  return queueLedgerWrite(async () => {
+    const ledger = await getLedgerData();
+    const result = await mutator(ledger);
+    await writeLedgerData(ledger);
+    return result;
+  });
 }
 
 async function getBudgetConfig() {
@@ -168,9 +179,10 @@ async function getBudgetConfig() {
 async function saveBudgetConfig(config) {
   const ledger = await getLedgerData();
   if (ledger) {
-    ledger.budget = clone(config);
-    await writeLedgerData(ledger);
-    return clone(config);
+    return saveLedgerMutation((nextLedger) => {
+      nextLedger.budget = clone(config);
+      return clone(config);
+    });
   }
 
   const db = await getDB();
@@ -212,14 +224,15 @@ async function saveCategory(category) {
 
   const ledger = await getLedgerData();
   if (ledger) {
-    const index = ledger.categories.findIndex(item => item.key === nextCategory.key);
-    if (index === -1) {
-      ledger.categories.push(nextCategory);
-    } else {
-      ledger.categories[index] = nextCategory;
-    }
-    await writeLedgerData(ledger);
-    return clone(nextCategory);
+    return saveLedgerMutation((nextLedger) => {
+      const index = nextLedger.categories.findIndex(item => item.key === nextCategory.key);
+      if (index === -1) {
+        nextLedger.categories.push(nextCategory);
+      } else {
+        nextLedger.categories[index] = nextCategory;
+      }
+      return clone(nextCategory);
+    });
   }
 
   const db = await getDB();
@@ -235,11 +248,12 @@ async function saveCategories(categories) {
 
   const ledger = await getLedgerData();
   if (ledger) {
-    const byKey = new Map(ledger.categories.map(category => [category.key, category]));
-    nextCategories.forEach(category => byKey.set(category.key, category));
-    ledger.categories = Array.from(byKey.values());
-    await writeLedgerData(ledger);
-    return clone(nextCategories);
+    return saveLedgerMutation((nextLedger) => {
+      const byKey = new Map(nextLedger.categories.map(category => [category.key, category]));
+      nextCategories.forEach(category => byKey.set(category.key, category));
+      nextLedger.categories = Array.from(byKey.values());
+      return clone(nextCategories);
+    });
   }
 
   const db = await getDB();
@@ -252,9 +266,10 @@ async function saveCategories(categories) {
 async function deleteCategory(key) {
   const ledger = await getLedgerData();
   if (ledger) {
-    ledger.categories = ledger.categories.filter(category => category.key !== key);
-    await writeLedgerData(ledger);
-    return true;
+    return saveLedgerMutation((nextLedger) => {
+      nextLedger.categories = nextLedger.categories.filter(category => category.key !== key);
+      return true;
+    });
   }
 
   const db = await getDB();
@@ -265,9 +280,10 @@ async function deleteCategory(key) {
 async function clearCategories() {
   const ledger = await getLedgerData();
   if (ledger) {
-    ledger.categories = [];
-    await writeLedgerData(ledger);
-    return true;
+    return saveLedgerMutation((nextLedger) => {
+      nextLedger.categories = [];
+      return true;
+    });
   }
 
   const db = await getDB();
@@ -297,12 +313,13 @@ async function addTransaction(tx) {
 
   const ledger = await getLedgerData();
   if (ledger) {
-    const id = ledger.nextTransactionId;
-    ledger.nextTransactionId += 1;
-    const transaction = { id, ...transactionInput };
-    ledger.transactions.push(transaction);
-    await writeLedgerData(ledger);
-    return clone(transaction);
+    return saveLedgerMutation((nextLedger) => {
+      const id = nextLedger.nextTransactionId;
+      nextLedger.nextTransactionId += 1;
+      const transaction = { id, ...transactionInput };
+      nextLedger.transactions.push(transaction);
+      return clone(transaction);
+    });
   }
 
   const db = await getDB();
@@ -314,9 +331,10 @@ async function deleteTransaction(id) {
   const parsedId = parseInt(id, 10);
   const ledger = await getLedgerData();
   if (ledger) {
-    ledger.transactions = ledger.transactions.filter(tx => parseInt(tx.id, 10) !== parsedId);
-    await writeLedgerData(ledger);
-    return true;
+    return saveLedgerMutation((nextLedger) => {
+      nextLedger.transactions = nextLedger.transactions.filter(tx => parseInt(tx.id, 10) !== parsedId);
+      return true;
+    });
   }
 
   const db = await getDB();
@@ -327,10 +345,11 @@ async function deleteTransaction(id) {
 async function clearTransactions() {
   const ledger = await getLedgerData();
   if (ledger) {
-    ledger.transactions = [];
-    ledger.nextTransactionId = 1;
-    await writeLedgerData(ledger);
-    return true;
+    return saveLedgerMutation((nextLedger) => {
+      nextLedger.transactions = [];
+      nextLedger.nextTransactionId = 1;
+      return true;
+    });
   }
 
   const db = await getDB();
@@ -354,18 +373,19 @@ async function updateTransaction(id, updatedData) {
   const parsedId = parseInt(id, 10);
   const ledger = await getLedgerData();
   if (ledger) {
-    const index = ledger.transactions.findIndex(tx => parseInt(tx.id, 10) === parsedId);
-    if (index === -1) throw new Error('Transaction not found');
-    const next = {
-      ...ledger.transactions[index],
-      amount: parseFloat(updatedData.amount),
-      category: updatedData.category,
-      note: updatedData.note || '',
-      date: updatedData.date
-    };
-    ledger.transactions[index] = next;
-    await writeLedgerData(ledger);
-    return clone(next);
+    return saveLedgerMutation((nextLedger) => {
+      const index = nextLedger.transactions.findIndex(tx => parseInt(tx.id, 10) === parsedId);
+      if (index === -1) throw new Error('Transaction not found');
+      const next = {
+        ...nextLedger.transactions[index],
+        amount: parseFloat(updatedData.amount),
+        category: updatedData.category,
+        note: updatedData.note || '',
+        date: updatedData.date
+      };
+      nextLedger.transactions[index] = next;
+      return clone(next);
+    });
   }
 
   const db = await getDB();
