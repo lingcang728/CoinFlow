@@ -9,9 +9,10 @@ const APP_SCHEME = 'coinflow';
 const { IS_SMOKE_TEST, setupSmokeEnvironment, runSmokeTest } = require('./smoke');
 
 setupSmokeEnvironment();
-// 正式安装版（NSIS）使用 Electron 默认的 userData 位置（%APPDATA%\CoinFlow），
-// 账本 IndexedDB 即存于此。自动更新只替换程序文件、不触碰该目录，
-// 因此升级版本后数据始终保留，无需任何手动迁移。
+app.setName('CoinFlow');
+// 真实账本不再放在 Electron/Chromium profile 中。
+// 渲染层通过 coinflow:ledger-* IPC 读写 Documents\CoinFlow\Ledger\coinflow-ledger.json；
+// userData 只保留窗口状态、WebView 缓存、旧 IndexedDB 迁移源等非权威数据。
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -117,6 +118,16 @@ function normalizeSaveData(data, encoding = 'utf8') {
 }
 
 function registerIpcHandlers() {
+  ipcMain.handle('coinflow:ledger-read', async () => {
+    return readLedgerFile();
+  });
+
+  ipcMain.handle('coinflow:ledger-write', async (_event, payload = {}) => {
+    return writeLedgerFile(payload);
+  });
+
+  ipcMain.handle('coinflow:ledger-path', () => getLedgerPaths());
+
   ipcMain.handle('coinflow:save-file', async (event, payload = {}) => {
     const ownerWindow = BrowserWindow.fromWebContents(event.sender);
     const defaultPath = String(payload.defaultPath || 'CoinFlow-export.dat');
@@ -150,7 +161,8 @@ function registerIpcHandlers() {
   ipcMain.handle('coinflow:get-app-info', () => ({
     version: app.getVersion(),
     platform: process.platform,
-    isPackaged: app.isPackaged
+    isPackaged: app.isPackaged,
+    ledgerPath: getLedgerPaths().ledgerPath
   }));
 
   // 手动「检查更新」。开发态（未打包）直接返回提示，避免 electron-updater 抛错。
@@ -176,6 +188,85 @@ function registerIpcHandlers() {
     setImmediate(() => autoUpdater.quitAndInstall());
     return { ok: true };
   });
+}
+
+function getLedgerPaths() {
+  const ledgerDir = process.env.COINFLOW_LEDGER_DIR || (
+    IS_SMOKE_TEST
+      ? path.join(app.getPath('userData'), 'Ledger')
+      : path.join(app.getPath('documents'), 'CoinFlow', 'Ledger')
+  );
+
+  return {
+    ledgerDir,
+    ledgerPath: path.join(ledgerDir, 'coinflow-ledger.json'),
+    backupPath: path.join(ledgerDir, 'coinflow-ledger.json.bak'),
+    tempPath: path.join(ledgerDir, 'coinflow-ledger.json.tmp')
+  };
+}
+
+function emptyLedger() {
+  return {
+    schemaVersion: 1,
+    app: 'CoinFlow',
+    storage: 'documents-ledger-json',
+    updatedAt: new Date().toISOString(),
+    nextTransactionId: 1,
+    transactions: [],
+    categories: [],
+    budget: null
+  };
+}
+
+async function readLedgerFile() {
+  const paths = getLedgerPaths();
+  await fs.promises.mkdir(paths.ledgerDir, { recursive: true });
+
+  if (!fs.existsSync(paths.ledgerPath)) {
+    return {
+      exists: false,
+      ledgerPath: paths.ledgerPath,
+      ledgerDir: paths.ledgerDir,
+      data: emptyLedger()
+    };
+  }
+
+  const raw = await fs.promises.readFile(paths.ledgerPath, 'utf8');
+  return {
+    exists: true,
+    ledgerPath: paths.ledgerPath,
+    ledgerDir: paths.ledgerDir,
+    data: JSON.parse(raw)
+  };
+}
+
+async function writeLedgerFile(payload = {}) {
+  const paths = getLedgerPaths();
+  await fs.promises.mkdir(paths.ledgerDir, { recursive: true });
+
+  const data = {
+    ...emptyLedger(),
+    ...payload,
+    schemaVersion: 1,
+    app: 'CoinFlow',
+    storage: 'documents-ledger-json',
+    updatedAt: new Date().toISOString()
+  };
+
+  const json = `${JSON.stringify(data, null, 2)}\n`;
+  await fs.promises.writeFile(paths.tempPath, json, 'utf8');
+
+  if (fs.existsSync(paths.ledgerPath)) {
+    await fs.promises.copyFile(paths.ledgerPath, paths.backupPath);
+  }
+
+  await fs.promises.rename(paths.tempPath, paths.ledgerPath);
+  return {
+    ok: true,
+    ledgerPath: paths.ledgerPath,
+    backupPath: fs.existsSync(paths.backupPath) ? paths.backupPath : null,
+    bytes: Buffer.byteLength(json, 'utf8')
+  };
 }
 
 // 把 electron-updater 抛出的原始错误（含堆栈、COS XML、request-id）归一成

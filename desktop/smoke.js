@@ -433,10 +433,8 @@ async function runSmokeTest(mainWindow) {
           return false;
         };
 
-        const db = await window.idb.openDB('CoinFlowDB', 2);
-        await db.clear('transactions');
-        await db.put('budget', budgetConfig, 'current');
-        db.close();
+        await window.CoinFlowDB.clearTransactions();
+        await window.CoinFlowDB.saveBudgetConfig(budgetConfig);
         await window.CoinFlowCategories.resetToDefaultCategories();
 
         window.CoinFlowState.currentYear = 2026;
@@ -671,6 +669,7 @@ async function runSmokeTest(mainWindow) {
         const selectionStart = input.selectionStart;
         const selectionEnd = input.selectionEnd;
         input.blur();
+        input.dispatchEvent(new FocusEvent('blur', { bubbles: false }));
         await wait(80);
 
         return {

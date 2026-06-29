@@ -10,6 +10,18 @@ contextBridge.exposeInMainWorld('coinflowDesktop', {
   }
 });
 
+contextBridge.exposeInMainWorld('coinflowLedger', {
+  read() {
+    return ipcRenderer.invoke('coinflow:ledger-read');
+  },
+  write(payload) {
+    return ipcRenderer.invoke('coinflow:ledger-write', payload);
+  },
+  getPath() {
+    return ipcRenderer.invoke('coinflow:ledger-path');
+  }
+});
+
 // 自动更新桥接：检查更新、退出安装、订阅更新状态
 contextBridge.exposeInMainWorld('coinflowUpdater', {
   check() {
