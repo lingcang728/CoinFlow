@@ -67,10 +67,11 @@ function waitForRendererLoad(mainWindow) {
   }
 
   return new Promise((resolve, reject) => {
+    // 冷启动（首次运行 / 杀毒扫描 / 磁盘冷读）下 10s 会误报，放宽到 30s。
     const timer = setTimeout(() => {
       cleanup();
       reject(new Error('Renderer load timed out'));
-    }, 10000);
+    }, 30000);
     const cleanup = () => {
       clearTimeout(timer);
       webContents.removeListener('did-finish-load', onLoaded);
@@ -759,10 +760,15 @@ async function runSmokeTest(mainWindow) {
         if (!deleteRow) return { found: true, moved, amountChanged, deleteRow: false };
         deleteRow.click();
         await wait(180);
-        const originalConfirm = window.confirm;
-        window.confirm = () => true;
+        // 删除确认现在是应用内弹窗（不再使用原生 confirm），点击弹窗内的「删除」按钮。
         document.getElementById('btn-delete-tx').click();
-        window.confirm = originalConfirm;
+        const confirmClicked = await waitUntil(() => {
+          const okButton = document.querySelector('[data-confirm-ok]');
+          if (!okButton) return false;
+          okButton.click();
+          return true;
+        });
+        if (!confirmClicked) return { found: true, moved, amountChanged, confirmDialog: false };
 
         const deleted = await waitUntil(async () => {
           const deletedTx = await window.CoinFlowDB.getTransactionById(target.id);

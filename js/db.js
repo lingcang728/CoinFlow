@@ -54,7 +54,16 @@ const DEFAULT_BUDGET = {
 };
 
 function clone(value) {
-  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  if (value === undefined) return undefined;
+  return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+}
+
+// 按日期区间缓存排好序的交易副本：一次页面刷新会拉取同一批月份 2~8 次
+// （顶栏 + 看板 + 统计页 6 个月趋势），全部命中缓存后只需做一次过滤排序。
+const rangeCache = new Map();
+
+function invalidateDerivedCaches() {
+  rangeCache.clear();
 }
 
 function hasDesktopLedger() {
@@ -133,6 +142,7 @@ async function writeLedgerData(data) {
   normalized.updatedAt = new Date().toISOString();
   await window.coinflowLedger.write(normalized);
   ledgerCache = normalized;
+  invalidateDerivedCaches();
   return normalized;
 }
 
@@ -182,23 +192,43 @@ async function getLedgerData() {
       }
 
       if (shouldWriteLedger) {
-        await writeLedgerData(ledger);
+        // 初始化阶段的回写失败（磁盘满 / 同步盘占用等）不应让整个应用瘫痪：
+        // 先以内存数据继续运行，后续任何一次成功保存都会把状态补写回磁盘。
+        try {
+          await writeLedgerData(ledger);
+        } catch (writeError) {
+          console.error('CoinFlow initial ledger write failed:', writeError);
+          if (window.CoinFlowUtils && typeof window.CoinFlowUtils.showToast === 'function') {
+            window.CoinFlowUtils.showToast('账本写入失败，本次以内存数据运行，请检查磁盘空间或同步盘占用', 'warning');
+          }
+        }
       }
 
       return ledger;
     })();
   }
 
-  ledgerCache = await ledgerPromise;
+  try {
+    ledgerCache = await ledgerPromise;
+  } catch (error) {
+    // 读取失败时允许下一次调用重试，而不是让所有页面从此永远失败（表现为假死）。
+    ledgerPromise = null;
+    throw error;
+  }
   return ledgerCache;
 }
 
 async function saveLedgerMutation(mutator) {
   return queueLedgerWrite(async () => {
     const ledger = await getLedgerData();
-    const result = await mutator(ledger);
-    await writeLedgerData(ledger);
-    return result;
+    try {
+      const result = await mutator(ledger);
+      await writeLedgerData(ledger);
+      return result;
+    } finally {
+      // 变更已应用到内存缓存；无论写盘成败都要让派生缓存失效，避免读到旧数据。
+      invalidateDerivedCaches();
+    }
   });
 }
 
@@ -508,9 +538,19 @@ function sortTransactions(txs) {
 async function getTransactionsByDateRange(startDate, endDate) {
   const ledger = await getLedgerData();
   if (ledger) {
-    return clone(sortTransactions(
-      ledger.transactions.filter(tx => tx.date >= startDate && tx.date <= endDate)
-    ));
+    const cacheKey = `${startDate}|${endDate}`;
+    let cached = rangeCache.get(cacheKey);
+    if (!cached) {
+      cached = sortTransactions(
+        ledger.transactions
+          .filter(tx => tx.date >= startDate && tx.date <= endDate)
+          .map(tx => ({ ...tx }))
+      );
+      if (rangeCache.size > 36) rangeCache.clear();
+      rangeCache.set(cacheKey, cached);
+    }
+    // 交易对象都是扁平结构，浅拷贝即等价于深拷贝；返回副本避免调用方排序/改写污染缓存。
+    return cached.map(tx => ({ ...tx }));
   }
 
   const db = await getDB();

@@ -180,7 +180,8 @@
   function setSaving(nextSaving) {
     saving = nextSaving;
     btnSave.disabled = nextSaving;
-    btnReset.disabled = nextSaving;
+    // 「新建」按钮保持可用：异步保存/删除期间用户点击新建的意图不能被吞掉，
+    // 否则删除完成后的兜底 reset 会清掉用户已经开始输入的新分类内容。
     btnDelete.disabled = nextSaving || !selectedKey;
     btnSave.textContent = nextSaving ? '保存中...' : '保存分类';
   }
@@ -222,10 +223,11 @@
 
   async function deleteSelectedCategory() {
     if (!selectedKey || saving) return;
+    const keyBeingDeleted = selectedKey;
 
     try {
       setSaving(true);
-      const result = await window.CoinFlowCategories.deleteCategory(selectedKey);
+      const result = await window.CoinFlowCategories.deleteCategory(keyBeingDeleted);
       const message = result.usedCount > 0
         ? `分类已删除，${result.usedCount} 笔历史账单已保留`
         : '分类已删除';
@@ -233,7 +235,11 @@
       window.CoinFlowUtils.triggerHaptic('success');
       window.CoinFlowUtils.events.emit('categoriesChanged');
       window.CoinFlowUtils.events.emit('dataChanged');
-      resetEditor();
+      // 仅当编辑器仍停留在被删分类时才重置；删除进行中用户可能已点了「新建」
+      // 并开始输入，此时不能把用户输入清掉。
+      if (selectedKey === keyBeingDeleted) {
+        resetEditor();
+      }
       await renderList();
     } catch (error) {
       console.error('处理分类失败:', error);

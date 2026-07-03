@@ -432,7 +432,11 @@
                   <input type="hidden" id="edit-date" value="${tx.date}" required>
                   <button type="button" id="edit-date-trigger" class="date-field date-field-full">
                     <span data-date-label>${tx.date}</span>
-                    <span class="date-field-icon" aria-hidden="true">▣</span>
+                    <span class="date-field-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M7 3v4M17 3v4M4.5 9.5h15M6 5h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 5Z"></path>
+                      </svg>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -560,18 +564,22 @@
     }
   }
 
-  // 删除确认
+  // 删除确认（应用内弹窗；原生 confirm 在 Electron 下会导致窗口失焦无法输入）
   async function handleDelete(txId) {
-    if (confirm('确认删除这笔账单记录吗？')) {
-      try {
-        await window.CoinFlowDB.deleteTransaction(txId);
-        window.CoinFlowUtils.triggerHaptic('warning');
-        window.CoinFlowUtils.showToast('账单已删除', 'success');
-        closeEditModal();
-        window.CoinFlowUtils.events.emit('dataChanged');
-      } catch (e) {
-        window.CoinFlowUtils.showToast('删除失败', 'error');
-      }
+    const confirmed = await window.CoinFlowUtils.showConfirm('确认删除这笔账单记录吗？', {
+      okText: '删除',
+      danger: true
+    });
+    if (!confirmed) return;
+
+    try {
+      await window.CoinFlowDB.deleteTransaction(txId);
+      window.CoinFlowUtils.triggerHaptic('warning');
+      window.CoinFlowUtils.showToast('账单已删除', 'success');
+      closeEditModal();
+      window.CoinFlowUtils.events.emit('dataChanged');
+    } catch (e) {
+      window.CoinFlowUtils.showToast('删除失败', 'error');
     }
   }
 

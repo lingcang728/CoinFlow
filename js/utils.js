@@ -215,6 +215,67 @@ function showToast(message, type = 'info') {
   }, 2500);
 }
 
+// 应用内确认弹窗，替代原生 confirm()。
+// Electron/Windows 下原生 confirm/alert 会阻塞渲染进程且关闭后窗口键盘焦点丢失
+// （输入框无法再输入，表现为「卡死」），因此一律使用应用内弹窗。
+function showConfirm(message, options = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay active';
+    overlay.style.zIndex = '10000';
+    overlay.innerHTML = `
+      <div class="bottom-sheet desktop-modal" style="max-width: 360px; text-align: center;" role="alertdialog" aria-modal="true">
+        <p style="margin: 6px 0 18px; font-size: 14px; color: #fff; line-height: 1.6;"></p>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn-secondary" data-confirm-cancel style="flex: 1; padding: 10px;"></button>
+          <button type="button" class="btn-primary" data-confirm-ok style="flex: 1; padding: 10px;"></button>
+        </div>
+      </div>
+    `;
+    overlay.querySelector('p').textContent = String(message || '确认执行该操作吗？');
+    const cancelBtn = overlay.querySelector('[data-confirm-cancel]');
+    const okBtn = overlay.querySelector('[data-confirm-ok]');
+    cancelBtn.textContent = options.cancelText || '取消';
+    okBtn.textContent = options.okText || '确认';
+    if (options.danger) {
+      // btn-primary 的渐变背景带 !important，内联覆盖必须同样声明 important 才生效。
+      okBtn.style.setProperty('background', 'linear-gradient(135deg, #EF5350, #D32F2F)', 'important');
+      okBtn.style.setProperty('box-shadow', '0 6px 18px rgba(244, 67, 54, 0.3)', 'important');
+    }
+
+    const previousFocus = document.activeElement;
+    function finish(result) {
+      document.removeEventListener('keydown', onKeydown, true);
+      overlay.remove();
+      if (previousFocus && typeof previousFocus.focus === 'function' && previousFocus.isConnected) {
+        previousFocus.focus();
+      }
+      resolve(result);
+    }
+    function onKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        finish(false);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        finish(true);
+      }
+    }
+
+    cancelBtn.addEventListener('click', () => finish(false));
+    okBtn.addEventListener('click', () => finish(true));
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) finish(false);
+    });
+    document.addEventListener('keydown', onKeydown, true);
+
+    document.body.appendChild(overlay);
+    okBtn.focus();
+  });
+}
+
 // 暴露为全局对象
 window.CoinFlowUtils = {
   CATEGORIES,
@@ -227,5 +288,6 @@ window.CoinFlowUtils = {
   normalizeDateString,
   triggerHaptic,
   events: coinFlowEvents,
-  showToast
+  showToast,
+  showConfirm
 };
