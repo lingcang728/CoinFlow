@@ -74,17 +74,24 @@ function createMainWindow() {
     }
   });
 
+  // 仅冒烟测试收集渲染进程的告警/报错用于断言；正式运行不做收集，避免长期驻留的数组无限增长。
   mainWindow.__coinflowRendererMessages = [];
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    if (level >= 2) {
+  if (IS_SMOKE_TEST) {
+    mainWindow.webContents.on('console-message', (event, legacyLevel, legacyMessage, legacyLine, legacySourceId) => {
+      // Electron 新版事件对象携带字符串 level（'warning'/'error'），旧版是位置参数的数字 level（2/3）。
+      const level = event && typeof event.level === 'string' ? event.level : legacyLevel;
+      const isProblem = level === 'warning' || level === 'error' ||
+        (typeof level === 'number' && level >= 2);
+      if (!isProblem) return;
+      if (mainWindow.__coinflowRendererMessages.length >= 500) return;
       mainWindow.__coinflowRendererMessages.push({
-        level: level,
-        message: message,
-        line: line,
-        sourceId: sourceId
+        level,
+        message: event && event.message !== undefined ? event.message : legacyMessage,
+        line: event && event.lineNumber !== undefined ? event.lineNumber : legacyLine,
+        sourceId: event && event.sourceId !== undefined ? event.sourceId : legacySourceId
       });
-    }
-  });
+    });
+  }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -213,8 +220,53 @@ function getLedgerPaths() {
     ledgerDir,
     ledgerPath: path.join(ledgerDir, 'coinflow-ledger.json'),
     backupPath: path.join(ledgerDir, 'coinflow-ledger.json.bak'),
-    tempPath: path.join(ledgerDir, 'coinflow-ledger.json.tmp')
+    tempPath: path.join(ledgerDir, 'coinflow-ledger.json.tmp'),
+    backupDir: path.join(ledgerDir, 'Backups')
   };
+}
+
+const DAILY_BACKUP_KEEP = 14;
+
+function formatStamp(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+// 每天第一次成功写入后，把账本快照复制到 Backups\，最多保留最近 DAILY_BACKUP_KEEP 天。
+// 这样即使主文件和 .bak 同时出问题，仍有最近两周的每日快照可回溯。
+async function rotateDailyBackup(paths) {
+  try {
+    const day = formatStamp().slice(0, 8);
+    const dailyPath = path.join(paths.backupDir, `coinflow-ledger-${day}.json`);
+    if (fs.existsSync(dailyPath)) return;
+
+    await fs.promises.mkdir(paths.backupDir, { recursive: true });
+    await fs.promises.copyFile(paths.ledgerPath, dailyPath);
+
+    const entries = await fs.promises.readdir(paths.backupDir);
+    const dailyBackups = entries
+      .filter(name => /^coinflow-ledger-\d{8}\.json$/.test(name))
+      .sort();
+    for (const name of dailyBackups.slice(0, Math.max(0, dailyBackups.length - DAILY_BACKUP_KEEP))) {
+      await removeIfExists(path.join(paths.backupDir, name));
+    }
+  } catch (error) {
+    console.warn('[Ledger] Daily backup rotation failed:', error);
+  }
+}
+
+// 无法解析的账本文件先原样隔离保存，绝不允许后续写入把「唯一的现场」覆盖掉。
+async function quarantineCorruptFile(filePath, paths) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    await fs.promises.mkdir(paths.backupDir, { recursive: true });
+    const target = path.join(paths.backupDir, `${path.basename(filePath)}.corrupt-${formatStamp()}`);
+    await fs.promises.copyFile(filePath, target);
+    return target;
+  } catch (error) {
+    console.warn('[Ledger] Failed to quarantine corrupt ledger:', error);
+    return null;
+  }
 }
 
 function emptyLedger() {
@@ -244,20 +296,24 @@ async function readLedgerFile() {
   }
 
   try {
+    const data = await readJsonFile(paths.ledgerPath);
+    lastPersistedTxCount = Array.isArray(data && data.transactions) ? data.transactions.length : 0;
     return {
       exists: true,
       ledgerPath: paths.ledgerPath,
       ledgerDir: paths.ledgerDir,
-      data: await readJsonFile(paths.ledgerPath)
+      data
     };
   } catch (error) {
     console.error('[Ledger] Failed to read primary ledger:', error);
+    await quarantineCorruptFile(paths.ledgerPath, paths);
   }
 
   if (fs.existsSync(paths.backupPath)) {
     try {
       const backupData = await readJsonFile(paths.backupPath);
       await fs.promises.copyFile(paths.backupPath, paths.ledgerPath);
+      lastPersistedTxCount = Array.isArray(backupData && backupData.transactions) ? backupData.transactions.length : 0;
       return {
         exists: true,
         recovered: true,
@@ -268,20 +324,32 @@ async function readLedgerFile() {
       };
     } catch (backupError) {
       console.error('[Ledger] Failed to recover from backup ledger:', backupError);
+      await quarantineCorruptFile(paths.backupPath, paths);
     }
   }
 
   return {
     exists: true,
     recoveryFailed: true,
-    warning: '账本文件损坏且备份不可用，已临时载入空账本',
+    warning: '账本文件损坏且备份不可用，已临时载入空账本（损坏文件已隔离保存在 Backups 目录）',
     ledgerPath: paths.ledgerPath,
     ledgerDir: paths.ledgerDir,
     data: emptyLedger()
   };
 }
 
-async function writeLedgerFile(payload = {}) {
+// 最近一次成功持久化的交易条数，用于识别「疑似误删」的大幅缩水写入。
+let lastPersistedTxCount = null;
+// 主进程内串行化所有账本写入，避免两个并发写共用同一个 .tmp 文件互相踩踏。
+let ledgerFileWriteChain = Promise.resolve();
+
+function writeLedgerFile(payload = {}) {
+  const queued = ledgerFileWriteChain.then(() => writeLedgerFileNow(payload));
+  ledgerFileWriteChain = queued.catch(() => {});
+  return queued;
+}
+
+async function writeLedgerFileNow(payload = {}) {
   const paths = getLedgerPaths();
   try {
     await fs.promises.mkdir(paths.ledgerDir, { recursive: true });
@@ -294,6 +362,28 @@ async function writeLedgerFile(payload = {}) {
       storage: 'documents-ledger-json',
       updatedAt: new Date().toISOString()
     };
+    data.transactions = Array.isArray(data.transactions) ? data.transactions : [];
+    data.categories = Array.isArray(data.categories) ? data.categories : [];
+
+    // 缩水保护：一次写入若让交易数掉到原来的一半以下（且原来至少有 20 条），
+    // 先把当前磁盘上的账本原样快照到 Backups\，再继续写。清空账本等合法操作不受阻，
+    // 但任何「误清空 / 异常状态覆盖」都留有完整可恢复的现场。
+    const nextCount = data.transactions.length;
+    if (
+      typeof lastPersistedTxCount === 'number' &&
+      lastPersistedTxCount >= 20 &&
+      nextCount < lastPersistedTxCount / 2 &&
+      fs.existsSync(paths.ledgerPath)
+    ) {
+      try {
+        await fs.promises.mkdir(paths.backupDir, { recursive: true });
+        const snapshotPath = path.join(paths.backupDir, `coinflow-ledger.pre-shrink-${formatStamp()}.json`);
+        await fs.promises.copyFile(paths.ledgerPath, snapshotPath);
+        console.warn(`[Ledger] Transaction count shrinking ${lastPersistedTxCount} -> ${nextCount}; snapshot saved to ${snapshotPath}`);
+      } catch (snapshotError) {
+        console.warn('[Ledger] Failed to write pre-shrink snapshot:', snapshotError);
+      }
+    }
 
     const json = `${JSON.stringify(data, null, 2)}\n`;
     await fs.promises.writeFile(paths.tempPath, json, 'utf8');
@@ -304,7 +394,8 @@ async function writeLedgerFile(payload = {}) {
     }
 
     await fs.promises.rename(paths.tempPath, paths.ledgerPath);
-    JSON.parse(await fs.promises.readFile(paths.ledgerPath, 'utf8'));
+    lastPersistedTxCount = nextCount;
+    await rotateDailyBackup(paths);
     return {
       ok: true,
       ledgerPath: paths.ledgerPath,
