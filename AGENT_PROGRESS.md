@@ -282,3 +282,23 @@
   - `npm run build:desktop` passed and produced `release\CoinFlow-Setup-1.1.6.exe`, `release\CoinFlow-Setup-1.1.6.exe.blockmap`, `release\latest.yml`, and refreshed `release\win-unpacked\`.
   - `release\win-unpacked\resources\app-update.yml` now contains `provider: github`, `owner: lingcang728`, and `repo: CoinFlow`.
   - Packaged smoke from `release\win-unpacked\CoinFlow.exe` passed with `runId=20260629061851-20948`; transaction edit, `.bak` recovery, stale remigration blocking, renderer-message, and six-layout checks passed.
+
+## 2026-07-03 稳定性与性能大修（V1.1.7）
+
+- 账本数据安全（对应用户"清缓存丢账本"焦虑的彻底解法，多层防线）：
+  - `Documents\CoinFlow\Ledger\Backups\` 每日轮换快照，保留最近 14 天。
+  - 单次写入令交易数缩水超一半（原有 >=20 条）时先落 `pre-shrink` 快照再写。
+  - 无法解析的主账本/备份先原样隔离为 `*.corrupt-<时间戳>` 再尝试恢复，现场永不被覆盖。
+  - 主进程账本写入串行化，消除并发写共用 `.tmp` 的竞态。
+- 三处"卡死/功能失效"根因修复：
+  - 原生 `confirm()`（删除账单）在 Electron/Windows 关闭后窗口键盘焦点丢失 → 应用内确认弹窗（`CoinFlowUtils.showConfirm`）。
+  - 账本首读/迁移回写失败后 `ledgerPromise` 永久 rejected，全应用假死 → 失败可重试 + 初始化写失败降级内存运行。
+  - 分类删除为异步，完成后的无条件 `resetEditor()` 清空用户正输入的新分类 → 仅当编辑器仍停留在被删分类时才重置；该竞态曾使 HEAD 冒烟 `defaultRestored` 断言失败。
+- 性能（"手感重"的三大来源）：
+  - 静态表面（卡片/侧栏/月份工具栏/快速记账面板）移除 `backdrop-filter` 毛玻璃，等效不透明底色补偿；模糊仅保留弹窗/下拉/日期选择器等临时浮层。
+  - 超预算 `warning-pulse` 由逐帧 `box-shadow` 动画改为伪元素 `opacity` 动画，消除看板空闲时 60fps 整卡重绘。
+  - `db.js` 日期区间查询缓存（写入即失效），一次刷新省去最多 7 次全量过滤+深拷贝；`clone` 改 `structuredClone`。
+  - 圆环图更新不再重放 760ms 入场动画（动画中途形似"图表错位/缩水"，冒烟截图曾拍到）；创建/更新后自愈 canvas 尺寸脱节；数字滚动动画仅在数值变化时触发。
+  - 主进程 `__coinflowRendererMessages` 无限累积修复（仅冒烟收集且封顶 500 条），适配 Electron 新版 `console-message` 事件签名。
+- 冒烟测试：渲染器加载超时 10s → 30s（冷启动误报）；删除流程适配应用内确认弹窗。
+- 验证：`npm run smoke:desktop` 全绿（含 `defaultRestored`、账本损坏恢复、六档分辨率零溢出、rendererMessages 为空）；CDP 实测删除确认弹窗后输入焦点正常、缩水快照/每日备份真实生成；看板截图确认圆环图/数字/光晕渲染正常且毛玻璃观感基本不变。

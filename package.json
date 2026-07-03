@@ -1,6 +1,6 @@
 {
   "name": "coinflow",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Electron-first 桌面端本地记账应用",
   "main": "desktop/main.js",
   "scripts": {
