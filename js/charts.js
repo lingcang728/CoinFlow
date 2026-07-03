@@ -52,6 +52,7 @@ function destroyChart(canvas) {
 
 function createOrUpdateChart(canvas, config, updateMode = 'none') {
   const existing = getChart(canvas);
+  let chart;
 
   if (existing && existing.config.type === config.type) {
     existing.data.labels = config.data.labels;
@@ -63,12 +64,21 @@ function createOrUpdateChart(canvas, config, updateMode = 'none') {
     } else {
       existing.update(updateMode);
     }
-    return existing;
+    chart = existing;
+  } else {
+    destroyChart(canvas);
+    chart = new window.Chart(canvas, config);
+    chartRegistry.set(canvas, chart);
   }
 
-  destroyChart(canvas);
-  const chart = new window.Chart(canvas, config);
-  chartRegistry.set(canvas, chart);
+  // 自愈：若图表内部尺寸与 canvas 实际布局尺寸脱节（隐藏期间创建/布局竞态），
+  // 立即校正一次，避免图形以错误尺寸卡在画面上。
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0 &&
+      (Math.abs(chart.width - rect.width) > 2 || Math.abs(chart.height - rect.height) > 2)) {
+    chart.resize();
+  }
+
   return chart;
 }
 
@@ -139,7 +149,9 @@ function createDoughnutChart(canvas, data, labels, colors) {
           }
         }
       },
-      animation: chartsLite() ? false : {
+      // 入场动画只在首次创建时播放；更新时直接就位。
+      // 否则每记一笔账圆环都整圈重放旋转+缩放，动画中途看起来像图表错位/缩水。
+      animation: (getChart(canvas) || chartsLite()) ? false : {
         animateRotate: true,
         animateScale: true,
         duration: 760,

@@ -204,16 +204,17 @@ select option {
   filter: drop-shadow(0 0 7px var(--primary-glow));
 }
 
+/* 卡片背后是静态深色背景，backdrop-filter 的高斯模糊在这里只是白白消耗 GPU：
+   改用略高不透明度的等效底色，观感几乎一致，滚动/动画则明显更顺滑。
+   毛玻璃仅保留给真正覆盖动态内容的临时浮层（弹窗/下拉/日期选择器）。 */
 .surface-card,
 .glass-card {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.032)),
-    rgba(17, 19, 28, 0.72) !important;
+    rgba(17, 19, 28, 0.9) !important;
   border: 1px solid var(--glass-border) !important;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  backdrop-filter: blur(20px) saturate(130%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(130%) !important;
   flex-shrink: 0;
 }
 
@@ -793,12 +794,10 @@ select option {
   min-height: 56px;
   padding: 0 18px;
   border-radius: var(--radius-lg);
-  background: rgba(18, 20, 28, 0.88) !important;
+  background: rgba(18, 20, 28, 0.94) !important;
   border: 1px solid var(--glass-border) !important;
   color: var(--text-secondary);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px) !important;
-  -webkit-backdrop-filter: blur(18px) !important;
 }
 
 .month-summary-bar strong,
@@ -1110,12 +1109,14 @@ select option {
   justify-content: center;
   align-items: flex-end;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.58) !important;
+  background: rgba(0, 0, 0, 0.62) !important;
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--transition-smooth), visibility var(--transition-smooth);
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
+  /* 弹窗淡入时整屏 backdrop 模糊会逐帧重算，弱 GPU 上开关弹窗必卡一下；
+     降低半径以在观感和流畅度之间取平衡。 */
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
 }
 
 .modal-overlay.active {
@@ -1263,17 +1264,30 @@ select option {
 .bg-social { background-color: rgba(33, 185, 197, 0.16) !important; color: var(--color-social) !important; }
 .bg-study { background-color: rgba(125, 99, 241, 0.16) !important; color: var(--color-study) !important; }
 
+/* 超预算警示光晕：box-shadow 逐帧动画会让整卡持续重绘（空闲时 GPU/CPU 常驻开销），
+   改为预先画好光晕的伪元素、仅动画 opacity（纯合成器操作，几乎零成本）。 */
 .warning-pulse {
-  animation: pulse-border 1.5s infinite alternate;
+  position: relative;
+}
+
+.warning-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 18px rgba(255, 90, 82, 0.42);
+  opacity: 0.3;
+  animation: pulse-glow 1.5s infinite alternate;
 }
 
 .progress-bar.danger.pulse {
   animation: pulse-bg 1.5s infinite alternate;
 }
 
-@keyframes pulse-border {
-  from { box-shadow: 0 0 4px rgba(255, 90, 82, 0.28); }
-  to { box-shadow: 0 0 18px rgba(255, 90, 82, 0.42); }
+@keyframes pulse-glow {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
 }
 
 @keyframes pulse-bg {

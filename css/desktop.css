@@ -63,11 +63,10 @@ body {
   flex-direction: column;
   padding: 28px 14px 26px;
   border-right: 1px solid rgba(255, 255, 255, 0.11) !important;
+  /* 侧栏是网格列而非浮层，其下没有会滚动的内容，模糊只是浪费 GPU。 */
   background:
     linear-gradient(180deg, rgba(18, 22, 32, 0.92), rgba(9, 12, 18, 0.95)),
     rgba(10, 12, 18, 0.96) !important;
-  backdrop-filter: blur(24px) saturate(128%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(128%) !important;
 }
 
 .sidebar-brand {
@@ -172,10 +171,8 @@ body {
   border-radius: 12px !important;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
-    rgba(15, 18, 27, 0.78) !important;
+    rgba(15, 18, 27, 0.92) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px rgba(0, 0, 0, 0.24) !important;
-  backdrop-filter: blur(18px) saturate(135%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
 }
 
 .month-calendar-icon {
@@ -396,12 +393,10 @@ body {
 .desktop-shell .glass-card {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.028)),
-    rgba(20, 24, 34, 0.77) !important;
+    rgba(20, 24, 34, 0.92) !important;
   border: 1px solid rgba(255, 255, 255, 0.105) !important;
   border-radius: 13px !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 16px 36px rgba(0, 0, 0, 0.24) !important;
-  backdrop-filter: blur(24px) saturate(132%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(132%) !important;
 }
 
 .desktop-card {
@@ -1138,9 +1133,7 @@ body {
   border-left: 1px solid rgba(255, 255, 255, 0.11) !important;
   background:
     radial-gradient(circle at 50% -16%, rgba(255, 196, 37, 0.075), transparent 26%),
-    linear-gradient(180deg, rgba(18, 22, 32, 0.92), rgba(10, 12, 18, 0.96)) !important;
-  backdrop-filter: blur(26px) saturate(126%) !important;
-  -webkit-backdrop-filter: blur(26px) saturate(126%) !important;
+    linear-gradient(180deg, rgba(18, 22, 32, 0.95), rgba(10, 12, 18, 0.98)) !important;
   overflow: hidden;
 }
 

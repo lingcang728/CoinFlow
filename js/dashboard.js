@@ -86,6 +86,12 @@
     if (!element) return;
 
     const prevVal = parseFloat(element.textContent.replace('¥', '').replace(/,/g, '')) || 0;
+    // 数值没变就不重跑滚动动画：普通刷新（记账后/切页）时大部分数字是不变的，
+    // 全卡片一起重滚会显得画面一直在晃。
+    if (Math.abs(end - prevVal) < 0.005) {
+      element.textContent = window.CoinFlowUtils.formatAmount(end);
+      return;
+    }
     const start = performance.now();
     const previousFrame = amountAnimationFrames.get(element);
     if (previousFrame) {
@@ -113,6 +119,10 @@
     if (!element) return;
 
     const prevVal = parseFloat(element.textContent.replace('%', '')) || 0;
+    if (Math.round(end) === Math.round(prevVal)) {
+      element.textContent = `${Math.round(end)}%`;
+      return;
+    }
     const start = performance.now();
     const previousFrame = percentAnimationFrames.get(element);
     if (previousFrame) {
